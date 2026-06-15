@@ -1,0 +1,6 @@
+name: default_model_config
+contextLimit: 100000
+outputLimit: 100000
+prompt: ""
+systemPromptPlacement: system
+nativeOpenAIToolCalls: true

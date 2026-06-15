@@ -1,0 +1,82 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Blue → indigo → violet: reads as “model / intelligence” without losing Mac polish -->
+    <linearGradient id="iconBg" x1="96" y1="64" x2="928" y2="992" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#22D3EE"/>
+      <stop offset="0.35" stop-color="#3B82F6"/>
+      <stop offset="0.72" stop-color="#6366F1"/>
+      <stop offset="1" stop-color="#4F46E5"/>
+    </linearGradient>
+    <linearGradient id="iconSheen" x1="512" y1="96" x2="512" y2="440" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF" stop-opacity="0.42"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="glyphFace" x1="312" y1="280" x2="712" y2="740" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF" stop-opacity="0.97"/>
+      <stop offset="1" stop-color="#EEF2FF" stop-opacity="0.94"/>
+    </linearGradient>
+    <linearGradient id="hubCore" x1="472" y1="448" x2="552" y2="568" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#6366F1"/>
+      <stop offset="1" stop-color="#3B82F6"/>
+    </linearGradient>
+    <radialGradient id="aiGlow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(512 420) rotate(90) scale(420 380)">
+      <stop stop-color="#A5B4FC" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#6366F1" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- 整体缩小 ~19%，留出边距，避免在 Dock 里比系统图标显大（对齐 macOS 图标安全区习惯） -->
+  <g transform="translate(512 512) scale(0.81) translate(-512 -512)">
+  <rect x="32" y="32" width="960" height="960" rx="224" fill="url(#iconBg)"/>
+  <rect x="32" y="32" width="960" height="960" rx="224" fill="url(#iconSheen)"/>
+  <!-- Soft “activation” glow behind the glyph -->
+  <rect x="32" y="32" width="960" height="960" rx="224" fill="url(#aiGlow)"/>
+
+  <!-- Background constellation (faint graph — reads as “network / model”) -->
+  <g opacity="0.22" stroke="#FFFFFF" stroke-width="5" stroke-linecap="round">
+    <path d="M140 720 Q280 560 400 640"/>
+    <path d="M400 640 Q520 520 640 600"/>
+    <path d="M640 600 Q780 680 884 560"/>
+    <path d="M180 360 Q340 280 480 340"/>
+    <path d="M480 340 Q620 240 780 320"/>
+  </g>
+  <g fill="#FFFFFF">
+    <circle cx="140" cy="720" r="14"/>
+    <circle cx="400" cy="640" r="14"/>
+    <circle cx="640" cy="600" r="14"/>
+    <circle cx="884" cy="560" r="14"/>
+    <circle cx="180" cy="360" r="12"/>
+    <circle cx="480" cy="340" r="12"/>
+    <circle cx="780" cy="320" r="12"/>
+  </g>
+
+  <!-- Frosted panel -->
+  <g>
+    <rect x="272" y="248" width="480" height="528" rx="88" fill="url(#glyphFace)"/>
+    <rect x="272" y="248" width="480" height="528" rx="88" fill="none" stroke="#FFFFFF" stroke-opacity="0.45" stroke-width="4"/>
+
+    <!-- Neural hub (centered in card) -->
+    <g stroke="#93C5FD" stroke-width="10" stroke-linecap="round">
+      <line x1="512" y1="508" x2="392" y2="418"/>
+      <line x1="512" y1="508" x2="632" y2="418"/>
+      <line x1="512" y1="508" x2="392" y2="598"/>
+      <line x1="512" y1="508" x2="632" y2="598"/>
+    </g>
+    <circle cx="392" cy="418" r="34" fill="#FFFFFF" stroke="#C7D2FE" stroke-width="5"/>
+    <circle cx="632" cy="418" r="34" fill="#FFFFFF" stroke="#C7D2FE" stroke-width="5"/>
+    <circle cx="392" cy="598" r="34" fill="#FFFFFF" stroke="#C7D2FE" stroke-width="5"/>
+    <circle cx="632" cy="598" r="34" fill="#FFFFFF" stroke="#C7D2FE" stroke-width="5"/>
+    <circle cx="512" cy="508" r="56" fill="url(#hubCore)"/>
+    <circle cx="512" cy="508" r="56" fill="none" stroke="#FFFFFF" stroke-opacity="0.55" stroke-width="5"/>
+
+    <!-- AI “spark” cluster (badge) -->
+    <g transform="translate(664 300)">
+      <circle cx="0" cy="0" r="48" fill="#FBBF24"/>
+      <circle cx="0" cy="0" r="48" fill="none" stroke="#FDE68A" stroke-width="4" stroke-opacity="0.9"/>
+      <path d="M0 -26 L4 -8 L22 -4 L4 0 L0 18 L-4 0 L-22 -4 L-4 -8 Z" fill="#1E1B4B"/>
+      <path d="M-38 0 L-34 -8 L-30 0 L-34 8 Z" fill="#FFFFFF" fill-opacity="0.95"/>
+      <path d="M34 4 L38 -4 L42 4 L38 12 Z" fill="#FFFFFF" fill-opacity="0.88"/>
+    </g>
+  </g>
+  </g>
+</svg>

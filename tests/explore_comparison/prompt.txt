@@ -1,0 +1,6 @@
+Explore the codebase to understand how AI conversation/chat history is rendered in the frontend. Specifically:
+1. Find components related to AI chat/conversation display
+2. Find how "running task cards" work and how they display chat history
+3. Look for any state management or data fetching related to chat history when switching to running tasks
+4. Identify why chat history might not appear when switching to a running task card
+Focus on React/frontend code. Return the key files, components, and any insights about the chat history rendering issue.

@@ -1,0 +1,82 @@
+{{- if or .Memory.GlobalPrompt .Memory.OccupationPrompt .Memory.ModelPrompt .Memory.WorkerPrompt .Memory.OutputStylePrompt }}
+<system_prompt>
+{{- if .Memory.GlobalPrompt }}
+<global_prompt>
+{{ .Memory.GlobalPrompt }}
+</global_prompt>
+{{ end -}}
+{{- if .Memory.OccupationPrompt }}
+<occupation_prompt>
+{{ .Memory.OccupationPrompt }}
+</occupation_prompt>
+{{ end -}}
+{{- if .Memory.ModelPrompt }}
+<model_prompt>
+{{ .Memory.ModelPrompt }}
+</model_prompt>
+{{ end -}}
+{{- if .Memory.WorkerPrompt }}
+<worker_prompt>
+{{ .Memory.WorkerPrompt }}
+</worker_prompt>
+{{ end -}}
+{{- if .Memory.OutputStylePrompt }}
+<output_style_prompt>
+{{ .Memory.OutputStylePrompt }}
+</output_style_prompt>
+{{ end -}}
+</system_prompt>
+{{ end -}}
+{{- if or .Memory.EnvPrompt .Memory.SessionGuidancePrompt .Memory.ToolPriorityPrompt .Memory.ProjectPrompt .Memory.ProjectFilePrompt .Memory.SkillPrompts .Memory.InstalledSkillsPrompt }}
+<developer_prompt>
+{{- if .Memory.SessionGuidancePrompt }}
+<session_guidance>
+{{ .Memory.SessionGuidancePrompt }}
+</session_guidance>
+{{ end -}}
+{{- if .Memory.EnvPrompt }}
+<environment_prompt>
+{{ .Memory.EnvPrompt }}
+</environment_prompt>
+{{ end -}}
+{{- if .Memory.ToolPriorityPrompt }}
+<tool_priority>
+{{ .Memory.ToolPriorityPrompt }}
+</tool_priority>
+{{ end -}}
+{{- if .Memory.ProjectPrompt }}
+<project_prompt>
+{{ .Memory.ProjectPrompt }}
+</project_prompt>
+{{ end -}}
+{{- if .Memory.ProjectFilePrompt }}
+<project_files>
+{{ range .Memory.ProjectFilePrompt -}}
+<file>
+<path>{{ .Path }}</path>
+<prompt>
+{{ .Prompt }}
+</prompt>
+</file>
+{{ end }}
+</project_files>
+{{ end -}}
+{{- if .Memory.SkillPrompts }}
+<worker_skills>
+{{ range .Memory.SkillPrompts -}}
+<skill>
+<name>{{ .Path }}</name>
+<content>
+{{ .Prompt }}
+</content>
+</skill>
+{{ end }}
+</worker_skills>
+{{ end -}}
+{{- if .Memory.InstalledSkillsPrompt }}
+<installed_skills>
+{{ .Memory.InstalledSkillsPrompt }}
+</installed_skills>
+{{ end -}}
+</developer_prompt>
+{{ end -}}

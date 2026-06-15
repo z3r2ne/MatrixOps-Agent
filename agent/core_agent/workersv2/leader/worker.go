@@ -1,0 +1,28 @@
+// Package leader 提供面向「项目统筹 / 需求对齐 / 任务规划与分配 / 协同」场景的 generic Worker 装配：主循环使用 promptbuilder.LeaderPromptBuilderName。
+package leader
+
+import (
+	coreagent "matrixops.local/core_agent"
+	"matrixops.local/core_agent/promptbuilder"
+	"matrixops.local/core_agent/workersv2/generic"
+)
+
+// WorkerName 建议与数据库 worker.name、YAML 配置中的标识一致。
+const WorkerName = "leader"
+
+// PromptBuilderName 对应 promptbuilder 注册名。
+const PromptBuilderName = promptbuilder.LeaderPromptBuilderName
+
+// BaseOptions 返回绑定本 worker 主循环模板与逻辑名的 Option（不含 DB、LLM、Emitter 等）。
+func BaseOptions(loopOpts coreagent.PromptBuilderOptions) []generic.Option {
+	return []generic.Option{
+		generic.WithName(WorkerName),
+		generic.WithLoop(nil, PromptBuilderName, loopOpts),
+	}
+}
+
+// New 先应用 BaseOptions(loopOpts)，再应用 opts，最后走 generic.New 的默认补齐与校验。
+func New(loopOpts coreagent.PromptBuilderOptions, opts ...generic.Option) (*generic.Worker, error) {
+	all := append(BaseOptions(loopOpts), opts...)
+	return generic.New(all...)
+}

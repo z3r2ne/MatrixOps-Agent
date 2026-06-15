@@ -1,0 +1,122 @@
+/* Diff View Overrides */
+
+/* 调整 diff 视图的整体样式 */
+.diff-view {
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* 统一由外层容器负责横向滚动，不让单行各自出现横向滚动条 */
+.diff-view-shell {
+  width: 100%;
+  max-width: 100%;
+  overflow: auto;
+}
+
+.diff-view-shell .diff-view,
+.diff-view-shell table {
+  width: max-content;
+  min-width: 100%;
+  max-width: none;
+}
+
+.diff-view-shell table {
+  table-layout: auto;
+}
+
+.diff-view-shell .diff-style-root,
+.diff-view-shell .diff-view-wrapper,
+.diff-view-shell table {
+  min-width: max-content;
+}
+
+.diff-view-shell tr.diff-line td.diff-line-content,
+.diff-view-shell tr.diff-line td.diff-line-old-content,
+.diff-view-shell tr.diff-line td.diff-line-new-content,
+.diff-view-shell tr.diff-line td[class*="diff-line-"][class*="-content"] {
+  overflow: visible;
+  white-space: pre;
+}
+
+/* 展开按钮 */
+.diff-view .diff-expand-button {
+  background-color: hsl(var(--accent));
+  color: hsl(var(--accent-foreground));
+  border: 1px solid hsl(var(--border));
+  padding: 2px 8px;
+  font-size: 12px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.diff-view .diff-expand-button:hover {
+  background-color: hsl(var(--accent-foreground) / 0.1);
+}
+
+/* 滚动条样式 */
+.diff-view-shell::-webkit-scrollbar,
+.diff-view ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.diff-view-shell::-webkit-scrollbar-track,
+.diff-view ::-webkit-scrollbar-track {
+  background: hsl(var(--muted));
+}
+
+.diff-view-shell::-webkit-scrollbar-thumb,
+.diff-view ::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.3);
+  border-radius: 4px;
+}
+
+.diff-view-shell::-webkit-scrollbar-thumb:hover,
+.diff-view ::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.5);
+}
+
+/* 选中文本样式 */
+.diff-view ::selection {
+  background-color: hsl(var(--primary) / 0.3);
+}
+
+/* Diff 代码搜索高亮 */
+.diff-view-shell tr.diff-line.diff-search-match {
+  outline: 1px solid hsl(45 93% 47% / 0.55);
+  outline-offset: -1px;
+}
+
+.diff-view-shell tr.diff-line.diff-search-active {
+  outline: 2px solid hsl(45 93% 47%);
+  outline-offset: -1px;
+  box-shadow: inset 0 0 0 9999px hsl(45 93% 47% / 0.18);
+}
+
+[data-diff-fallback-line].diff-search-match {
+  background-color: hsl(45 93% 47% / 0.12);
+}
+
+[data-diff-fallback-line].diff-search-active {
+  background-color: hsl(45 93% 47% / 0.28);
+}
+
+/* 深色模式适配 */
+@media (prefers-color-scheme: dark) {
+  .diff-view .diff-line-add {
+    background-color: rgba(46, 160, 67, 0.2);
+  }
+
+  .diff-view .diff-line-add .diff-line-content {
+    background-color: rgba(46, 160, 67, 0.25);
+  }
+
+  .diff-view .diff-line-delete {
+    background-color: rgba(248, 81, 73, 0.2);
+  }
+
+  .diff-view .diff-line-delete .diff-line-content {
+    background-color: rgba(248, 81, 73, 0.25);
+  }
+}

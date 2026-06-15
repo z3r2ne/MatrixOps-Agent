@@ -1,0 +1,11 @@
+name: compaction
+provider: llm
+model: default
+description: 记忆压缩专用 Worker：仅用于生成历史记忆摘要，不参与 agent 主循环。
+mode: primary
+native: false
+hidden: true
+occupation: analyst
+enabledTools: []
+enabledSkills: []
+workerPrompt: ""

@@ -1,0 +1,18 @@
+# macOS Finder（任意目录）
+.DS_Store
+**/.DS_Store
+
+# build artifacts
+/build/
+
+# go test binaries (compiled via `go test -c`)
+/agent/core_agent/*.test
+
+# Delve debug binaries
+cmd/__debug_bin*
+
+# explore comparison binaries and runtime artifacts
+/explore-compare
+/matrixops
+/matrixops.exe
+/tests/explore_comparison/output/

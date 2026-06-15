@@ -1,0 +1,11 @@
+go 1.25.5
+
+use (
+	.
+	./agent
+	./agent/core_agent
+	./agent/memory
+	./pkgs
+	./tests
+	./web-server
+)

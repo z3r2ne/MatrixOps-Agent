@@ -1,0 +1,106 @@
+{{- if .NativeOpenAITools }}
+<max_steps_exhausted>
+你已经达到本轮任务允许的最大步数上限。请仅根据下方完整历史记忆（含用户诉求与已执行过程），用简洁、结构化的**中文自然语言**向用户做阶段性总结：说明已完成内容、当前卡点或未完成项、以及用户可采取的下一步（若适用）。不要编造未在记忆中出现的工具结果或事实。
+**不要**输出 JSON，**不要**发起工具调用；只写给用户看的正文。
+</max_steps_exhausted>
+{{- else }}
+<max_steps_exhausted>
+你已经达到本轮任务允许的最大步数上限，且尚未使用 `answer` 结束任务。
+你必须根据下方完整的历史记忆（含用户诉求与已执行过程），用简洁、结构化的中文向用户做**阶段性总结**：说明已完成内容、当前卡点或未完成项、以及用户可采取的下一步（若适用）。不要编造未在记忆中出现的工具结果或事实。
+</max_steps_exhausted>
+{{- end }}
+
+{{- if or .Memory.GlobalPrompt .Memory.OccupationPrompt .Memory.ModelPrompt .Memory.WorkerPrompt }}
+<system_prompt>
+{{- if .Memory.GlobalPrompt }}
+<global_prompt>
+{{ .Memory.GlobalPrompt }}
+</global_prompt>
+{{ end -}}
+{{- if .Memory.OccupationPrompt }}
+<occupation_prompt>
+{{ .Memory.OccupationPrompt }}
+</occupation_prompt>
+{{ end -}}
+{{- if .Memory.ModelPrompt }}
+<model_prompt>
+{{ .Memory.ModelPrompt }}
+</model_prompt>
+{{ end -}}
+{{- if .Memory.WorkerPrompt }}
+<worker_prompt>
+{{ .Memory.WorkerPrompt }}
+</worker_prompt>
+{{ end -}}
+</system_prompt>
+{{ end -}}
+{{- if or .Memory.EnvPrompt .Memory.ProjectPrompt .Memory.ProjectFilePrompt .Memory.SkillPrompts .Memory.InstalledSkillsPrompt }}
+<developer_prompt>
+{{- if .Memory.EnvPrompt }}
+<environment_prompt>
+{{ .Memory.EnvPrompt }}
+</environment_prompt>
+{{ end -}}
+{{- if .Memory.ProjectPrompt }}
+<project_prompt>
+{{ .Memory.ProjectPrompt }}
+</project_prompt>
+{{ end -}}
+{{- if .Memory.ProjectFilePrompt }}
+<project_files>
+{{ range .Memory.ProjectFilePrompt -}}
+<file>
+<path>{{ .Path }}</path>
+<prompt>
+{{ .Prompt }}
+</prompt>
+</file>
+{{ end }}
+</project_files>
+{{ end -}}
+{{- if .Memory.SkillPrompts }}
+<worker_skills>
+{{ range .Memory.SkillPrompts -}}
+<skill>
+<name>{{ .Path }}</name>
+<content>
+{{ .Prompt }}
+</content>
+</skill>
+{{ end }}
+</worker_skills>
+{{ end -}}
+{{- if .Memory.InstalledSkillsPrompt }}
+<installed_skills>
+{{ .Memory.InstalledSkillsPrompt }}
+</installed_skills>
+{{ end -}}
+</developer_prompt>
+{{ end -}}
+
+{{- $memoryContent := memoryContent .Memory }}
+{{- if $memoryContent }}
+<memory>
+{{ $memoryContent }}
+</memory>
+{{ end -}}
+
+{{- if .ContextInfo }}
+<context_window>
+<limit_tokens>{{ .ContextInfo.LimitTokens }}</limit_tokens>
+<current_tokens>{{ .ContextInfo.CurrentTokens }}</current_tokens>
+<current_bytes>{{ .ContextInfo.CurrentBytes }}</current_bytes>
+<usage_percent>{{ contextUsagePercent .ContextInfo }}</usage_percent>
+</context_window>
+{{ end -}}
+
+<user_request>
+{{ .UserInput }}
+</user_request>
+
+{{- if .NativeOpenAITools }}
+<output_format>
+<requirement>只输出一段给用户看的自然语言总结（中文），不要 JSON，不要代码围栏包裹整段回复。</requirement>
+</output_format>
+<final_instruction>请立即用自然语言写出总结正文。</final_instruction>
+{{- end }}

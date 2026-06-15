@@ -1,0 +1,122 @@
+version: "3"
+
+tasks:
+  # Web 开发任务
+  start:
+    desc: 启动前端开发服务器
+    dir: frontend
+    cmds:
+      - npm run dev
+
+  backend:
+    desc: 启动后端服务器
+    dir: web-server
+    cmds:
+      - go run .
+
+  build:
+    desc: 构建前端和后端（生产模式）
+    cmds:
+      - cd frontend && npm run build
+      - cd web-server && go build -o matrixops-server
+
+  # Electron 桌面应用任务
+  app:
+    desc: 启动 Electron 桌面应用（自动构建前端）
+    cmds:
+      - mkdir -p build
+      - go build -o build/matrixops ./cmd
+      - ./build/matrixops app
+
+  build-frontend:
+    desc: 构建前端资源
+    dir: frontend
+    cmds:
+      - npm run build
+      - echo "✅ 前端构建完成"
+
+  electron:build-backend:
+    desc: 编译后端 CLI 程序
+    cmds:
+      - mkdir -p build
+      - go build -o build/matrixops ./cmd
+      - echo "✅ 后端编译完成"
+
+  electron:install:
+    desc: 安装 Electron 依赖
+    dir: frontend
+    cmds:
+      - npm install
+      - echo "✅ 依赖安装完成"
+
+  electron:dev:
+    desc: 启动 Electron 开发模式（仅启动 Electron，不启动后端）
+    deps: [electron:install]
+    dir: frontend
+    cmds:
+      - npm run electron:dev
+
+  electron:build:
+    desc: 构建 Electron 桌面应用（所有平台）
+    deps: [electron:build-backend]
+    dir: frontend
+    cmds:
+      - npm run build
+      - npm run electron:build
+      - echo "✅ Electron 应用构建完成"
+
+  electron:build:mac:
+    desc: 构建 macOS 版本
+    deps: [electron:build-backend]
+    dir: frontend
+    cmds:
+      - npm run build
+      - npm run electron:build:mac
+      - echo "✅ macOS 应用构建完成"
+
+  electron:build:win:
+    desc: 构建 Windows 版本
+    deps: [electron:build-backend]
+    dir: frontend
+    cmds:
+      - npm run build
+      - npm run electron:build:win
+      - echo "✅ Windows 应用构建完成"
+
+  electron:build:linux:
+    desc: 构建 Linux 版本
+    deps: [electron:build-backend]
+    dir: frontend
+    cmds:
+      - npm run build
+      - npm run electron:build:linux
+      - echo "✅ Linux 应用构建完成"
+
+  # 通用任务
+  clean:
+    desc: 清理构建产物
+    cmds:
+      - rm -f matrixops matrixops.exe
+      - rm -f build/matrixops build/matrixops.exe
+      - rm -rf frontend/dist frontend/dist-electron
+      - rm -rf web-server/matrixops-server
+      - echo "✅ 清理完成"
+
+  install:
+    desc: 安装所有依赖
+    cmds:
+      - cd frontend && npm install
+      - cd web-server && go mod download
+      - go mod download
+      - echo "✅ 所有依赖安装完成"
+
+  test:
+    desc: 运行测试
+    cmds:
+      - go test ./...
+      - cd agent && go test ./...
+      - cd agent/core_agent && go test ./...
+      - cd agent/memory && go test ./...
+      - cd pkgs && go test ./...
+      - cd tests && go test ./...
+      - cd web-server && go test ./...

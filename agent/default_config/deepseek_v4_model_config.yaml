@@ -1,0 +1,9 @@
+name: deepseek-v4
+contextLimit: 800000
+outputLimit: 100000
+prompt: ""
+systemPromptPlacement: system
+nativeOpenAIToolCalls: true
+parallelToolCalls: true
+textVerbosity: low
+

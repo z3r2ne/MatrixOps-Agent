@@ -1,0 +1,10 @@
+name: gpt-5
+contextLimit: 300000
+outputLimit: 100000
+prompt: ""
+systemPromptPlacement: instruction
+nativeOpenAIToolCalls: true
+parallelToolCalls: true
+reasoningEffort: xhigh
+enableEncryptedReasoning: true
+textVerbosity: low
