@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "project": "matrixops",
+  "worker": "explore",
+  "summary": {
+    "total_tool_calls": 18,
+    "tool_counts": {
+      "rg": 3,
+      "read": 8,
+      "glob": 2
+    },
+    "read_total": 8,
+    "read_unique_paths": 6,
+    "read_duplicate_ranges": [
+      {
+        "path": "frontend/src/components/workspace/ChatInterfaceV2.tsx",
+        "offset": 0,
+        "limit": 200,
+        "count": 1
+      }
+    ],
+    "total_read_output_chars": 42000
+  },
+  "tolerances": {
+    "total_tool_calls": 0.2,
+    "read_total": 0.2,
+    "read_duplicate_ranges": 0,
+    "total_read_output_chars": 0.25
+  }
+}

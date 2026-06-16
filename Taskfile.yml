@@ -120,3 +120,9 @@ tasks:
       - cd pkgs && go test ./...
       - cd tests && go test ./...
       - cd web-server && go test ./...
+
+  semreg:struct:
+    desc: 语义回归 L0（mock，PR 可跑）
+    cmds:
+      - cd pkgs && go test ./semreg/... -count=1
+      - cd tests && go test ./semantic_regression/... -count=1

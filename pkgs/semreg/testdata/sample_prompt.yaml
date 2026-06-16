@@ -1,0 +1,19 @@
+id: sample_prompt
+name: Sample Prompt Render
+tier: L0
+kind: prompt_render
+prompt_render:
+  global_prompt: global
+  user_input: do it
+  tool_names:
+    - read_file
+  history:
+    - role: user
+      content: hello
+  context_limit: 1000
+  context_current_tokens: 120
+  context_current_bytes: 512
+assert:
+  system_prompt_contains:
+    - "<system_prompt>"
+    - "<global_prompt>"

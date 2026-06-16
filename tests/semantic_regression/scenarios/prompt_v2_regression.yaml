@@ -1,0 +1,22 @@
+id: prompt_v2_regression
+name: Prompt V2 基础结构
+description: 验证 RenderV2TaskPrompt 渲染出必需的 prompt 结构块
+tier: L0
+kind: prompt_render
+prompt_render:
+  global_prompt: global
+  user_input: do it
+  tool_names:
+    - read_file
+  history:
+    - role: user
+      content: hello
+  context_limit: 1000
+  context_current_tokens: 120
+  context_current_bytes: 512
+assert:
+  system_prompt_contains:
+    - "<system_prompt>"
+    - "<global_prompt>"
+    - "<context_window>"
+  user_input_equals: do it

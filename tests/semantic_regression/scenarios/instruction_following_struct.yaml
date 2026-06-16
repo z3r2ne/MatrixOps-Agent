@@ -1,0 +1,12 @@
+id: instruction_following_struct
+name: 指令遵循结构回归
+description: 验证 mock task runner 首轮 LLM 请求包含完整 system prompt 且任务可完成
+tier: L0
+kind: task_runner
+task_runner:
+  task_input: 请按以下顺序执行：1. 在当前目录创建 a.txt 文件；2. 在 a.txt 中写入内容 "123"。
+assert:
+  system_prompt_contains:
+    - "<system_prompt>"
+  user_input_equals: 请按以下顺序执行：1. 在当前目录创建 a.txt 文件；2. 在 a.txt 中写入内容 "123"。
+  task_completes: true
