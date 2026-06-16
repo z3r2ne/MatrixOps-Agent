@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	database "pkgs/db"
 	"pkgs/db/models"
 	"pkgs/db/storage"
@@ -42,6 +43,10 @@ type AgentRunner struct {
 	isNewSession bool
 
 	messageQueue *taskqueue.Queue
+
+	// toolPermissionMu serializes project tool permission prompts so concurrent tool
+	// calls do not emit overlapping wait_user_input requests.
+	toolPermissionMu sync.Mutex
 }
 
 // GetSessionID 获取会话ID

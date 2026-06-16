@@ -218,7 +218,7 @@ export function WorkspaceDetailPage({
   const [sessionIds, setSessionIds] = useState<Map<number, string>>(new Map())
   const [sessionTokens, setSessionTokens] = useState<Map<string, MessageTokens>>(new Map())
   const [taskErrors, setTaskErrors] = useState<Map<number, string>>(new Map())
-  const [waitUserInputs, setWaitUserInputs] = useState<Map<number, { id: string; question: Record<string, any> }>>(new Map())
+  const [waitUserInputs, setWaitUserInputs] = useState<Map<number, { id: string; question: Record<string, any> }[]>>(new Map())
   const [waitUserAnswers, setWaitUserAnswers] = useState<Record<string, string>>({})
   const taskStatusRef = useRef<Map<number, string>>(new Map())
   const taskNameRef = useRef<Map<number, string>>(new Map())
@@ -358,7 +358,11 @@ export function WorkspaceDetailPage({
 
     setWaitUserInputs(prev => {
       const next = new Map(prev)
-      next.set(taskId, { id, question: question as Record<string, any> })
+      const queue = next.get(taskId) ?? []
+      if (queue.some((entry) => entry.id === id)) {
+        return prev
+      }
+      next.set(taskId, [...queue, { id, question: question as Record<string, any> }])
       return next
     })
   }, [])
@@ -627,7 +631,9 @@ export function WorkspaceDetailPage({
     toast.success("正在重新执行任务")
   }, [selectedTaskId, dismissRetry, restartTask])
 
-  const activeWaitUserInput = selectedTaskId ? waitUserInputs.get(selectedTaskId) : undefined
+  const waitUserInputQueue = selectedTaskId ? (waitUserInputs.get(selectedTaskId) ?? []) : []
+  const activeWaitUserInput = waitUserInputQueue[0]
+  const pendingWaitUserInputCount = waitUserInputQueue.length
   const isProjectToolPermissionRequest = activeWaitUserInput?.question?.kind === "project_tool_permission"
 
   const displayMessagesV2 = useMemo(() => {
@@ -679,16 +685,22 @@ export function WorkspaceDetailPage({
     setToolRejectReason("")
   }, [activeWaitUserInput?.id])
 
-  const submitWaitUserInputResult = useCallback((result: Record<string, any>) => {
-    if (!selectedTaskId || !activeWaitUserInput) return
-    waitUserInput(selectedTaskId, activeWaitUserInput.id, result)
+  const submitWaitUserInputResult = useCallback((entryId: string, result: Record<string, any>) => {
+    if (!selectedTaskId) return
+    waitUserInput(selectedTaskId, entryId, result)
     setWaitUserInputs(prev => {
       const next = new Map(prev)
-      next.delete(selectedTaskId)
+      const queue = next.get(selectedTaskId) ?? []
+      const filtered = queue.filter((entry) => entry.id !== entryId)
+      if (filtered.length === 0) {
+        next.delete(selectedTaskId)
+      } else {
+        next.set(selectedTaskId, filtered)
+      }
       return next
     })
     setWaitUserAnswers({})
-  }, [selectedTaskId, activeWaitUserInput, waitUserInput])
+  }, [selectedTaskId, waitUserInput])
 
   const handleSubmitWaitUserInput = useCallback(() => {
     if (!selectedTaskId || !activeWaitUserInput) return
@@ -703,16 +715,16 @@ export function WorkspaceDetailPage({
       result[q.key] = waitUserAnswers[q.key] || ""
     })
 
-    submitWaitUserInputResult(result)
+    submitWaitUserInputResult(activeWaitUserInput.id, result)
   }, [selectedTaskId, activeWaitUserInput, waitQuestions, waitUserAnswers, submitWaitUserInputResult])
 
   const handleCancelWaitUserInput = useCallback(() => {
     if (!selectedTaskId || !activeWaitUserInput) return
     if (activeWaitUserInput.question?.kind === "project_tool_permission") {
-      submitWaitUserInputResult({ decision: "reject", reason: toolRejectReason.trim() })
+      submitWaitUserInputResult(activeWaitUserInput.id, { decision: "reject", reason: toolRejectReason.trim() })
       return
     }
-    submitWaitUserInputResult({ refused: true })
+    submitWaitUserInputResult(activeWaitUserInput.id, { refused: true })
   }, [selectedTaskId, activeWaitUserInput, submitWaitUserInputResult, toolRejectReason])
 
   const projectToolPermissionPayload = useMemo(() => {
@@ -734,12 +746,14 @@ export function WorkspaceDetailPage({
   }, [activeWaitUserInput, isProjectToolPermissionRequest])
 
   const handleProjectToolPermissionDecision = useCallback((decision: "allow" | "reject") => {
+    if (!activeWaitUserInput) return
     submitWaitUserInputResult(
+      activeWaitUserInput.id,
       decision === "reject"
         ? { decision, reason: toolRejectReason.trim() }
         : { decision }
     )
-  }, [submitWaitUserInputResult, toolRejectReason])
+  }, [activeWaitUserInput, submitWaitUserInputResult, toolRejectReason])
 
   const activeProjectId = useMemo(() => {
     if (isCreatingTask && Number(createTaskProjectId) > 0) {
@@ -2096,10 +2110,15 @@ export function WorkspaceDetailPage({
       >
         <DialogContent className="max-w-lg max-h-[80vh] flex flex-col">
           <DialogHeader>
-            <DialogTitle>{isProjectToolPermissionRequest ? "工具权限确认" : "需要你的输入"}</DialogTitle>
+            <DialogTitle>
+              {isProjectToolPermissionRequest ? "工具权限确认" : "需要你的输入"}
+              {pendingWaitUserInputCount > 1 ? `（${pendingWaitUserInputCount} 项待处理）` : ""}
+            </DialogTitle>
             <DialogDescription>
               {isProjectToolPermissionRequest
-                ? "当前项目把这个工具设置成了询问模式，请选择是否放行本次调用。"
+                ? pendingWaitUserInputCount > 1
+                  ? "当前项目把这个工具设置成了询问模式。请依次处理队列中的权限请求。"
+                  : "当前项目把这个工具设置成了询问模式，请选择是否放行本次调用。"
                 : "请回答以下问题以继续执行任务"}
             </DialogDescription>
           </DialogHeader>

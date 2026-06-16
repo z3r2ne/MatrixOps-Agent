@@ -92,6 +92,9 @@ func projectToolAction(project *models.Project, projectToolPermissions map[strin
 	if action, ok := projectToolPermissions[toolName]; ok && models.IsValidProjectToolPermission(action) {
 		return action
 	}
+	if agenttool.IsPermissionExemptTool(toolName) {
+		return models.ProjectToolPermissionAllow
+	}
 	return models.ProjectToolPermissionAsk
 }
 
@@ -185,6 +188,8 @@ func (r *AgentRunner) authorizeToolCall(
 				ToolName:    call.Name,
 			}
 		}
+		r.toolPermissionMu.Lock()
+		defer r.toolPermissionMu.Unlock()
 		result, err := r.emitter.WaitUserInput(buildProjectToolApprovalPayload(runtimeConfig.Project, worker, call, toolInstance))
 		if err != nil {
 			return err
