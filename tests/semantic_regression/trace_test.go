@@ -2,23 +2,13 @@ package semantic_regression
 
 import (
 	"path/filepath"
-	"runtime"
 	"testing"
 
 	"pkgs/semreg"
 )
 
-func baselinesDir(t *testing.T) string {
-	t.Helper()
-	_, file, _, ok := runtime.Caller(0)
-	if !ok {
-		t.Fatal("runtime.Caller failed")
-	}
-	return filepath.Join(filepath.Dir(file), "baselines")
-}
-
 func TestExploreChatHistoryTraceBaselineLoads(t *testing.T) {
-	path := filepath.Join(baselinesDir(t), "explore_chat_history.trace.v1.json")
+	path := filepath.Join(baselinesDir(), "explore_chat_history.trace.v1.json")
 	doc, err := semreg.LoadTraceDocument(path)
 	if err != nil {
 		t.Fatal(err)

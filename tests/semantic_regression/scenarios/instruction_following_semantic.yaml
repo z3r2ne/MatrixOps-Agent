@@ -1,0 +1,8 @@
+id: instruction_following_semantic
+name: 指令遵循语义回归
+description: 复用 testrunner instruction_following 场景，验证 LLM judge 通过
+tier: L2
+kind: semantic
+semantic:
+  reuse_scenario: instruction_following
+  expect_status: passed

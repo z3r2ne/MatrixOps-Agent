@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"sort"
 	"strings"
 )
 
@@ -158,4 +159,78 @@ func NormalizeLegacyTrace(raw map[string]any) (*TraceDocument, error) {
 		}
 	}
 	return &doc, nil
+}
+
+// BuildTraceSummary 从工具调用记录构建 trace 摘要（与 collect_trace.py 对齐）。
+func BuildTraceSummary(calls []TraceToolCall) TraceSummary {
+	toolCounts := map[string]int{}
+	readByPath := map[string]int{}
+	readKeys := map[string]int{}
+	readTotal := 0
+	totalReadChars := 0
+
+	for _, call := range calls {
+		toolCounts[call.Tool]++
+		if call.Tool != "read" {
+			continue
+		}
+		readTotal++
+		totalReadChars += call.OutputChars
+		path, _ := call.Input["path"].(string)
+		readByPath[path]++
+		offset := fmt.Sprint(call.Input["offset"])
+		limit := fmt.Sprint(call.Input["limit"])
+		readKeys[path+"|"+offset+"|"+limit]++
+	}
+
+	type pathCount struct {
+		Path  string
+		Count int
+	}
+	topPaths := make([]pathCount, 0, len(readByPath))
+	for path, count := range readByPath {
+		topPaths = append(topPaths, pathCount{Path: path, Count: count})
+	}
+	sort.Slice(topPaths, func(i, j int) bool {
+		return topPaths[i].Count > topPaths[j].Count
+	})
+	if len(topPaths) > 15 {
+		topPaths = topPaths[:15]
+	}
+
+	readTopPaths := make([][]interface{}, 0, len(topPaths))
+	for _, item := range topPaths {
+		readTopPaths = append(readTopPaths, []interface{}{item.Path, item.Count})
+	}
+
+	dupRanges := make([]TraceReadDuplicateRange, 0)
+	for key, count := range readKeys {
+		if count <= 1 {
+			continue
+		}
+		parts := strings.SplitN(key, "|", 3)
+		offset, limit := "", ""
+		if len(parts) > 1 {
+			offset = parts[1]
+		}
+		if len(parts) > 2 {
+			limit = parts[2]
+		}
+		dupRanges = append(dupRanges, TraceReadDuplicateRange{
+			Path:   parts[0],
+			Offset: offset,
+			Limit:  limit,
+			Count:  count,
+		})
+	}
+
+	return TraceSummary{
+		TotalToolCalls:       len(calls),
+		ToolCounts:           toolCounts,
+		ReadTotal:            readTotal,
+		ReadUniquePaths:      len(readByPath),
+		ReadTopPaths:         readTopPaths,
+		ReadDuplicateRanges:  dupRanges,
+		TotalReadOutputChars: totalReadChars,
+	}
 }

@@ -15,6 +15,8 @@ type Kind string
 const (
 	KindPromptRender Kind = "prompt_render"
 	KindTaskRunner   Kind = "task_runner"
+	KindBehavior     Kind = "behavior"
+	KindSemantic     Kind = "semantic"
 )
 
 // Scenario 定义一条语义回归用例。
@@ -27,6 +29,8 @@ type Scenario struct {
 
 	PromptRender *PromptRenderSpec `yaml:"prompt_render,omitempty"`
 	TaskRunner   *TaskRunnerSpec   `yaml:"task_runner,omitempty"`
+	Behavior     *BehaviorSpec     `yaml:"behavior,omitempty"`
+	Semantic     *SemanticSpec     `yaml:"semantic,omitempty"`
 	Assert       AssertSpec        `yaml:"assert"`
 }
 
@@ -58,4 +62,24 @@ type AssertSpec struct {
 	SystemPromptNotContains []string `yaml:"system_prompt_not_contains"`
 	UserInputEquals         string   `yaml:"user_input_equals"`
 	TaskCompletes           bool     `yaml:"task_completes"`
+}
+
+// BehaviorSpec L1 行为回归：真实 LLM 跑 worker，对比 tool trace 基线。
+type BehaviorSpec struct {
+	Worker       string `yaml:"worker"`
+	Prompt       string `yaml:"prompt"`
+	PromptFile   string `yaml:"prompt_file"`
+	BaselineFile string `yaml:"baseline_file"`
+	WorkDirEnv   string `yaml:"work_dir_env"`
+	WorkspaceEnv string `yaml:"workspace_id_env"`
+	ProjectEnv   string `yaml:"project_id_env"`
+	TimeoutSec   int    `yaml:"timeout_sec"`
+}
+
+// SemanticSpec L2 语义回归：主任务 + verification judge。
+type SemanticSpec struct {
+	ReuseScenario string `yaml:"reuse_scenario"`
+	TaskInput     string `yaml:"task_input"`
+	VerifyPrompt  string `yaml:"verify_prompt"`
+	ExpectStatus  string `yaml:"expect_status"`
 }

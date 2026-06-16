@@ -7,71 +7,32 @@
 | 层级 | 说明 | 是否进 PR CI |
 |------|------|-------------|
 | **L0** | 结构回归：prompt 片段、首轮 LLM 请求、任务状态（mock LLM） | ✅ |
-| **L1** | 行为回归：tool trace 指标 vs baseline | Nightly（待接 LLM） |
-| **L2** | 语义回归：verification worker / rubric 评分 | Nightly（待扩展 testrunner） |
-
-## 目录
-
-```
-scenarios/     # YAML 用例定义
-baselines/     # 已批准的 trace / verdict 基线（进 git）
-struct_test.go # L0 集成测试
-trace_test.go  # baseline 加载与对比单测
-```
-
-## 用例格式（YAML）
-
-```yaml
-id: prompt_v2_regression
-name: Prompt V2 基础结构
-tier: L0
-kind: prompt_render   # prompt_render | task_runner
-
-prompt_render:
-  global_prompt: global
-  user_input: do it
-  tool_names: [read_file]
-  history:
-    - role: user
-      content: hello
-
-assert:
-  system_prompt_contains:
-    - "<system_prompt>"
-  user_input_equals: do it
-```
-
-`kind: task_runner` 会通过 mock LLM 跑完整 task，检查首轮 system prompt 与任务完成状态。
+| **L1** | 行为回归：tool trace 指标 vs baseline（真实 LLM） | Nightly / 手动 |
+| **L2** | 语义回归：testrunner + verification judge（真实 LLM） | Nightly / 手动 |
 
 ## 运行
 
 ```bash
-# L0 结构回归（PR 可跑）
-task semreg:struct
-
-# 或单独
-cd pkgs && go test ./semreg/... -count=1
-cd tests && go test ./semantic_regression/... -count=1
+task semreg:struct     # L0
+task semreg:behavior   # L1，需 SEMREG_ENABLE=1
+task semreg:semantic   # L2，需 SEMREG_ENABLE=1
 ```
 
-`task test` 已包含 L0 语义回归（随 `cd tests && go test ./...` 执行）。
+L1/L2 环境变量：
 
-## Trace 基线格式
-
-与 `tests/explore_comparison/collect_trace.py` / `cmd/explore-compare` 输出兼容，并增加 `version` 与 `tolerances`：
-
-```json
-{
-  "version": 1,
-  "summary": { "total_tool_calls": 18, "read_duplicate_ranges": [] },
-  "tolerances": { "total_tool_calls": 0.2, "read_duplicate_ranges": 0 }
-}
+```bash
+export SEMREG_ENABLE=1
+export SEMREG_WORK_DIR=/path/to/project
+export SEMREG_WORKSPACE_ID=7
+export SEMREG_PROJECT_ID=8
 ```
 
-使用 `semreg.CompareTraceSummary` 对比实际 trace 与 baseline。
+## 用例类型
 
-## 后续（Phase 2+）
+- `prompt_render` / `task_runner` — L0
+- `behavior` — L1，对比 `baselines/*.json`
+- `semantic` — L2，复用 `pkgs/testrunner` 场景（YAML `reuse_scenario`）
 
-- `task semreg:behavior`：真实 LLM + explore trace（`-tags=semanticregression`）
-- `task semreg:semantic`：扩展 `pkgs/testrunner` 从 YAML 加载 L2 场景
-- Nightly workflow 上传 `reports/`
+## CI
+
+Nightly workflow：`.github/workflows/semantic-regression.yml`（仓库变量 `SEMREG_ENABLE=1` 启用 L1/L2）

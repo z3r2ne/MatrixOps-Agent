@@ -1,0 +1,50 @@
+name: Semantic Regression
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 3 * * *"
+
+jobs:
+  semantic-regression:
+    name: L1/L2 Semantic Regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24.1"
+          cache-dependency-path: |
+            go.sum
+            agent/go.sum
+            agent/core_agent/go.sum
+            agent/memory/go.sum
+            pkgs/go.sum
+            tests/go.sum
+            web-server/go.sum
+
+      - name: Setup Task
+        uses: arduino/setup-task@v2
+
+      - name: Run L0 struct regression
+        run: task semreg:struct
+
+      - name: Run L1/L2 regression (optional)
+        if: vars.SEMREG_ENABLE == '1'
+        env:
+          SEMREG_ENABLE: "1"
+          SEMREG_WORK_DIR: ${{ vars.SEMREG_WORK_DIR }}
+          SEMREG_WORKSPACE_ID: ${{ vars.SEMREG_WORKSPACE_ID }}
+          SEMREG_PROJECT_ID: ${{ vars.SEMREG_PROJECT_ID }}
+        run: |
+          task semreg:behavior
+          task semreg:semantic
+
+      - name: Note skipped L1/L2
+        if: vars.SEMREG_ENABLE != '1'
+        run: echo "L1/L2 skipped: set repository variable SEMREG_ENABLE=1 to run nightly LLM regression."

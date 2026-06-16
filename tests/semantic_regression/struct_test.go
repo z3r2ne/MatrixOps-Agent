@@ -2,8 +2,6 @@ package semantic_regression
 
 import (
 	"errors"
-	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -27,17 +25,8 @@ import (
 	"gorm.io/gorm"
 )
 
-func scenariosDir(t *testing.T) string {
-	t.Helper()
-	_, file, _, ok := runtime.Caller(0)
-	if !ok {
-		t.Fatal("runtime.Caller failed")
-	}
-	return filepath.Join(filepath.Dir(file), "scenarios")
-}
-
 func TestSemanticRegressionStruct(t *testing.T) {
-	scenarios, err := semreg.LoadScenariosDir(scenariosDir(t))
+	scenarios, err := semreg.LoadScenariosDir(scenariosDir())
 	if err != nil {
 		t.Fatal(err)
 	}

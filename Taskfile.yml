@@ -126,3 +126,13 @@ tasks:
     cmds:
       - cd pkgs && go test ./semreg/... -count=1
       - cd tests && go test ./semantic_regression/... -count=1
+
+  semreg:behavior:
+    desc: 语义回归 L1（真实 LLM + trace，需 SEMREG_ENABLE=1）
+    cmds:
+      - cd tests && go test -tags=semanticregression ./semantic_regression/... -run Behavior -count=1 -timeout 30m
+
+  semreg:semantic:
+    desc: 语义回归 L2（真实 LLM + judge，需 SEMREG_ENABLE=1）
+    cmds:
+      - cd tests && go test -tags=semanticregression ./semantic_regression/... -run Semantic -count=1 -timeout 30m

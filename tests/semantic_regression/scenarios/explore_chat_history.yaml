@@ -1,0 +1,13 @@
+id: explore_chat_history
+name: Explore chat history 行为回归
+description: 对比 explore worker 工具调用 trace 与基线
+tier: L1
+kind: behavior
+behavior:
+  worker: explore
+  prompt_file: ../../explore_comparison/prompt.txt
+  baseline_file: explore_chat_history.trace.v1.json
+  work_dir_env: SEMREG_WORK_DIR
+  workspace_id_env: SEMREG_WORKSPACE_ID
+  project_id_env: SEMREG_PROJECT_ID
+  timeout_sec: 1200

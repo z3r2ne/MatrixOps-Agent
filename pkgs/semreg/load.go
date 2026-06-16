@@ -86,6 +86,24 @@ func validateScenario(scenario *Scenario, path string) error {
 		if scenario.TaskRunner == nil {
 			return fmt.Errorf("%s: task_runner is required for kind task_runner", path)
 		}
+	case KindBehavior:
+		if scenario.Behavior == nil {
+			return fmt.Errorf("%s: behavior is required for kind behavior", path)
+		}
+		if strings.TrimSpace(scenario.Behavior.BaselineFile) == "" {
+			return fmt.Errorf("%s: behavior.baseline_file is required", path)
+		}
+		if strings.TrimSpace(scenario.Behavior.Prompt) == "" && strings.TrimSpace(scenario.Behavior.PromptFile) == "" {
+			return fmt.Errorf("%s: behavior.prompt or behavior.prompt_file is required", path)
+		}
+	case KindSemantic:
+		if scenario.Semantic == nil {
+			return fmt.Errorf("%s: semantic is required for kind semantic", path)
+		}
+		if strings.TrimSpace(scenario.Semantic.ReuseScenario) == "" &&
+			strings.TrimSpace(scenario.Semantic.TaskInput) == "" {
+			return fmt.Errorf("%s: semantic.reuse_scenario or semantic.task_input is required", path)
+		}
 	default:
 		return fmt.Errorf("%s: unsupported kind %q", path, scenario.Kind)
 	}

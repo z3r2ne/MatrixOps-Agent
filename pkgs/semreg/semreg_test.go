@@ -44,6 +44,21 @@ func TestEvaluateStructAssertions(t *testing.T) {
 	}
 }
 
+func TestBuildTraceSummaryCountsDuplicateReads(t *testing.T) {
+	calls := []semreg.TraceToolCall{
+		{Tool: "read", Input: map[string]any{"path": "a.go", "offset": 0, "limit": 100}},
+		{Tool: "read", Input: map[string]any{"path": "a.go", "offset": 0, "limit": 100}},
+		{Tool: "rg", Input: map[string]any{"pattern": "fmt"}},
+	}
+	summary := semreg.BuildTraceSummary(calls)
+	if summary.TotalToolCalls != 3 {
+		t.Fatalf("total=%d", summary.TotalToolCalls)
+	}
+	if len(summary.ReadDuplicateRanges) != 1 {
+		t.Fatalf("dup ranges=%d", len(summary.ReadDuplicateRanges))
+	}
+}
+
 func TestCompareTraceSummaryRejectsDuplicateReads(t *testing.T) {
 	baseline := semreg.TraceSummary{
 		TotalToolCalls: 10,
