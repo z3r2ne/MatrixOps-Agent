@@ -110,6 +110,11 @@ tasks:
       - go mod download
       - echo "✅ 所有依赖安装完成"
 
+  test:ci:
+    desc: 运行测试（CI 模式，输出 ci-logs/）
+    cmds:
+      - bash scripts/ci-test.sh
+
   test:
     desc: 运行测试
     cmds:

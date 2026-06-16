@@ -18,6 +18,7 @@ import (
 
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 func TestExecuteCLIChatTurnReusesSessionHistory(t *testing.T) {
@@ -32,11 +33,11 @@ func TestExecuteCLIChatTurnReusesSessionHistory(t *testing.T) {
 		go func() {
 			defer close(events)
 			events <- agentllm.StreamEvent{
-				Type: "text-delta",
-				Text: fmt.Sprintf(`{"call_tool":"answer","params":"reply-%d"}`, index),
+				Type: string(agentllm.GeneratorMessageTypeTextDelta),
+				Text: fmt.Sprintf(`{"@action":"answer","data":"reply-%d"}`, index),
 			}
 			events <- agentllm.StreamEvent{
-				Type:   "finish",
+				Type:   string(agentllm.GeneratorMessageTypeFinish),
 				Finish: "stop",
 				Usage:  &agentllm.Usage{InputTokens: 8, OutputTokens: 4},
 			}
@@ -107,7 +108,9 @@ func openCLIChatTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 
 	dbPath := filepath.Join(t.TempDir(), "cli-chat.db")
-	db, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
+	db, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Silent),
+	})
 	if err != nil {
 		t.Fatalf("open sqlite: %v", err)
 	}

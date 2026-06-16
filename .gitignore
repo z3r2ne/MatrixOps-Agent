@@ -16,3 +16,6 @@ cmd/__debug_bin*
 /matrixops
 /matrixops.exe
 /tests/explore_comparison/output/
+
+# CI test output
+/ci-logs/
