@@ -136,16 +136,10 @@ func (h *TaskHandler) resolveWorkspaceTaskProject(workspaceID uint, projectID ui
 	if projectID == 0 {
 		return nil, nil
 	}
-	inWorkspace, err := database.IsProjectInWorkspace(h.db, workspaceID, projectID)
-	if err != nil {
-		return nil, err
-	}
-	if !inWorkspace {
-		return nil, fmt.Errorf("项目不属于当前工作区")
-	}
+	_ = workspaceID
 	project, err := database.GetProjectByID(h.db, projectID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("项目不存在")
 	}
 	return project, nil
 }

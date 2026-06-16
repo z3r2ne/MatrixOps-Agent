@@ -926,7 +926,7 @@ export function WorkspaceDetailPage({
       try {
         const [workersData, projectsData, memoryLibrariesData] = await Promise.all([
           api.getWorkers().catch(() => []),
-          effectiveWorkspaceId ? api.getProjects(effectiveWorkspaceId).catch(() => []) : Promise.resolve([]),
+          api.getAllProjects().catch(() => []),
           api.getRagLibraries().catch(() => []),
         ])
 
@@ -966,7 +966,7 @@ export function WorkspaceDetailPage({
     return () => {
       cancelled = true
     }
-  }, [createTaskProjectId, effectiveWorkspaceId, isCreatingTask, refreshCreateTaskProjectGitState])
+  }, [createTaskProjectId, isCreatingTask, refreshCreateTaskProjectGitState])
 
   const handleInlineCreateTask = useCallback(async (messageOverride?: string, partsOverride?: UserMessagePart[]) => {
     const source = typeof messageOverride === "string" ? messageOverride : createTaskInput

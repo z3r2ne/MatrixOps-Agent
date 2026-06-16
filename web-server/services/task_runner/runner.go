@@ -379,13 +379,6 @@ func CreateAndRunTask(opts ...TaskRuntimeConfigOption) (*models.Task, error) {
 		if err != nil {
 			return nil, errors.New("项目不存在")
 		}
-		inWorkspace, inWorkspaceErr := database.IsProjectInWorkspace(db, workspace.ID, project.ID)
-		if inWorkspaceErr != nil {
-			return nil, inWorkspaceErr
-		}
-		if !inWorkspace {
-			return nil, errors.New("项目不属于当前工作区")
-		}
 	}
 
 	var workDir string

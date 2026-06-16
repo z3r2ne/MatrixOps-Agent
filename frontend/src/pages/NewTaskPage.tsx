@@ -142,7 +142,7 @@ export function NewTaskPage() {
 
         const [loadedWorkers, loadedProjects, loadedMemoryLibraries] = await Promise.all([
           api.getWorkers().catch(() => []),
-          api.getProjects(nextWorkspaceID).catch(() => []),
+          api.getAllProjects().catch(() => []),
           api.getRagLibraries().catch(() => []),
         ])
         setWorkspaceId(nextWorkspaceID)
