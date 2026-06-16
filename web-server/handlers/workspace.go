@@ -230,8 +230,13 @@ func (h *WorkspaceHandler) CreateWorkspace(c *gin.Context) {
 			continue
 		}
 
+		if err := projectHandler.validateProjectName(projReq.Name, 0); err != nil {
+			fmt.Printf("创建项目失败: %v\n", err)
+			continue
+		}
+
 		project := models.Project{
-			Name:            projReq.Name,
+			Name:            database.NormalizeProjectName(projReq.Name),
 			Path:            projectPath,
 			WorktreePath:    projectPath,
 			Icon:            projReq.Icon,

@@ -92,6 +92,9 @@ type RunnerConfig struct {
 	MessageQueue *taskqueue.Queue
 	// ConsumeSupplement 消费一条 supplement 队列项（创建用户消息、同步 memory 等）。
 	ConsumeSupplement func(state *RunState, item models.TaskMessageQueueItem) error
+	// AuthorizeToolCall 在工具真正执行前、看门狗计时开始前调用。返回 (nil, nil) 表示放行；
+	// 非 nil *ToolResult 表示拦截（如权限拒绝），不再执行工具。
+	AuthorizeToolCall func(actionCtx *ActionContext, call ToolCall) (*ToolResult, error)
 }
 
 type LLMCallInfo struct {

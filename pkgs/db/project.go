@@ -1,10 +1,50 @@
 package database
 
 import (
+	"errors"
+	"strings"
+
 	"pkgs/db/models"
 
 	"gorm.io/gorm"
 )
+
+var ErrProjectNameExists = errors.New("project name already exists")
+
+// NormalizeProjectName trims surrounding whitespace from a project name.
+func NormalizeProjectName(name string) string {
+	return strings.TrimSpace(name)
+}
+
+// GetProjectByName returns a project with the same name (case-insensitive).
+func GetProjectByName(db *gorm.DB, name string) (*models.Project, error) {
+	normalized := NormalizeProjectName(name)
+	if normalized == "" {
+		return nil, gorm.ErrRecordNotFound
+	}
+	var project models.Project
+	err := db.Where("LOWER(name) = LOWER(?)", normalized).First(&project).Error
+	return &project, err
+}
+
+// EnsureProjectNameAvailable reports whether the name is free to use.
+func EnsureProjectNameAvailable(db *gorm.DB, name string, excludeID uint) error {
+	normalized := NormalizeProjectName(name)
+	if normalized == "" {
+		return errors.New("project name is required")
+	}
+	existing, err := GetProjectByName(db, normalized)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if excludeID != 0 && existing.ID == excludeID {
+		return nil
+	}
+	return ErrProjectNameExists
+}
 
 // Project 相关数据库操作
 

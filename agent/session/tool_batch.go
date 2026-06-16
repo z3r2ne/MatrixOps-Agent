@@ -78,21 +78,24 @@ func (r *AgentRunner) prepareToolCallPlanWithContext(runtimeConfig *RuntimeConfi
 		}
 	}
 
-	if err := r.authorizeToolCall(runtimeConfig, worker, call, toolInstance); err != nil {
-		if blockedResult, ok := blockedToolResult(toolInstance, err); ok {
+	skipAuthorize, _ := execCtx.Values[tool.ToolContextSkipAuthorizeKey].(bool)
+	if !skipAuthorize {
+		if err := r.authorizeToolCall(runtimeConfig, worker, call, toolInstance); err != nil {
+			if blockedResult, ok := blockedToolResult(toolInstance, err); ok {
+				return toolCallPlan{
+					Call: call,
+					Run: func() (tool.Result, error) {
+						return blockedResult, nil
+					},
+				}
+			}
+
 			return toolCallPlan{
 				Call: call,
 				Run: func() (tool.Result, error) {
-					return blockedResult, nil
+					return tool.Result{IsError: true, Name: toolInstance.Name()}, err
 				},
 			}
-		}
-
-		return toolCallPlan{
-			Call: call,
-			Run: func() (tool.Result, error) {
-				return tool.Result{IsError: true, Name: toolInstance.Name()}, err
-			},
 		}
 	}
 

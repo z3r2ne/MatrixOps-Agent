@@ -145,6 +145,7 @@ export function ToolCallView({ part, isForcedRunning, canCancel = false, onCance
   }
   const isPreparing = tool.state.status === "preparing"
   const isInputStreaming = tool.state.status === "input-streaming"
+  const isAwaitingPermission = tool.state.status === "awaiting_permission" || Boolean(meta.awaitingPermission)
   const isRunning = isForcedRunning || tool.state.status === "running" || tool.state.status === "pending"
   const isCancelled = tool.state.status === "cancelled"
   const isBlocked = tool.state.status === "blocked" || Boolean(meta.blocked)
@@ -203,7 +204,9 @@ export function ToolCallView({ part, isForcedRunning, canCancel = false, onCance
   const statusColor =
     isInputStreaming || isRunning
       ? "text-blue-500"
-      : isPreparing
+      : isAwaitingPermission
+        ? "text-amber-600"
+        : isPreparing
         ? "text-slate-500"
         : isCancelled
           ? "text-amber-600"
@@ -219,7 +222,9 @@ export function ToolCallView({ part, isForcedRunning, canCancel = false, onCance
 
   const statusBarClass = isInputStreaming || isRunning
     ? "border-l-blue-500"
-    : isPreparing
+    : isAwaitingPermission
+      ? "border-l-amber-500"
+      : isPreparing
       ? "border-l-slate-400"
       : isCancelled || isRejected
         ? "border-l-amber-500"
@@ -289,6 +294,8 @@ export function ToolCallView({ part, isForcedRunning, canCancel = false, onCance
           )}
           {compact ? (
             <span className="min-w-0 flex-1 truncate whitespace-nowrap font-mono text-[11px] text-muted-foreground/90">{compact}</span>
+          ) : isAwaitingPermission ? (
+            <span className="min-w-0 flex-1 truncate whitespace-nowrap text-[11px] text-amber-700/90">等待权限确认…</span>
           ) : inputContent ? (
             <span className="min-w-0 flex-1 truncate whitespace-nowrap text-[11px] text-muted-foreground/70">
               {inputContent.replace(/\s+/g, " ").slice(0, 80)}

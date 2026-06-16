@@ -903,6 +903,16 @@ func (r *Runner) handleDirectRegistryTool(ctx *ActionContext, toolName string, a
 		}
 		return []*Part{part}, nil
 	}
+	call := ToolCall{ID: callID, Name: toolName, Arguments: args}
+
+	proceed, prepErr := r.authorizeBeforeToolExecution(ctx, part, call, args, string(payload), updateToolPart)
+	if prepErr != nil {
+		return nil, prepErr
+	}
+	if !proceed {
+		return []*Part{part}, nil
+	}
+
 	if err := updateToolPart(func() {
 		part.Tool.State.Input = args
 		part.Tool.State.Raw = strings.TrimSpace(string(payload))
@@ -915,7 +925,6 @@ func (r *Runner) handleDirectRegistryTool(ctx *ActionContext, toolName string, a
 	}); err != nil {
 		return nil, err
 	}
-	call := ToolCall{ID: callID, Name: toolName, Arguments: args}
 
 	watchdogTimeout := ctx.State.ResolveStallWatchdogTimeout(toolName, r.cfg.StallWatchdogTimeout)
 	if watchdogTimeout <= 0 {
@@ -1047,6 +1056,51 @@ func (r *Runner) handleDirectRegistryTool(ctx *ActionContext, toolName string, a
 	})
 	// 工具执行失败（含非零退出、取消）只记录在 tool part，不终止 agent 循环。
 	return []*Part{part}, nil
+}
+
+func (r *Runner) authorizeBeforeToolExecution(
+	ctx *ActionContext,
+	part *Part,
+	call ToolCall,
+	args map[string]interface{},
+	rawPayload string,
+	updateToolPart func(func()) error,
+) (proceed bool, err error) {
+	if r.cfg.AuthorizeToolCall == nil {
+		return true, nil
+	}
+
+	raw := strings.TrimSpace(rawPayload)
+	if err := updateToolPart(func() {
+		part.Tool.State.Input = args
+		part.Tool.State.Raw = raw
+		part.Tool.State.Status = "awaiting_permission"
+		part.Tool.State.Metadata = map[string]interface{}{
+			"inputPreview":       raw,
+			"inputStreaming":     false,
+			"cancelable":         false,
+			"awaitingPermission": true,
+		}
+	}); err != nil {
+		return false, err
+	}
+
+	blocked, authErr := r.cfg.AuthorizeToolCall(ctx, call)
+	if blocked != nil {
+		_ = updateToolPart(func() {
+			ApplyToolCallExecution(part, *blocked, authErr)
+		})
+		return false, nil
+	}
+	if authErr != nil {
+		_ = updateToolPart(func() {
+			ApplyToolCallExecution(part, ToolResult{IsError: true, Name: call.Name}, authErr)
+		})
+		return false, nil
+	}
+
+	ctx.MarkToolPreAuthorized(call.ID)
+	return true, nil
 }
 
 func toolResultUsesTerminalOutput(metadata ...map[string]interface{}) bool {

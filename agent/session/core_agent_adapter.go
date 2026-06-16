@@ -248,6 +248,24 @@ func (r *AgentRunner) buildCoreRunner(runtimeConfig *RuntimeConfig, input Proces
 		Emitter:       coreEmitter,
 		LLMClient:     &coreLLMClientAdapter{inner: llmClient, pluginManager: r.pluginManager},
 		PromptBuilder: r.buildCorePromptBuilder(runtimeConfig, input.UserPrompt),
+		AuthorizeToolCall: func(actionCtx *coreagent.ActionContext, call coreagent.ToolCall) (*coreagent.ToolResult, error) {
+			if runtimeConfig == nil || runtimeConfig.ToolRegistry == nil {
+				return nil, fmt.Errorf("tool registry is not configured")
+			}
+			toolInstance, err := runtimeConfig.ToolRegistry.Get(call.Name)
+			if err != nil {
+				return nil, err
+			}
+			llmCall := llm.ToolCall{Name: call.Name, Arguments: call.Arguments}
+			if authErr := r.authorizeToolCall(runtimeConfig, runtimeConfig.Worker, llmCall, toolInstance); authErr != nil {
+				if blockedResult, ok := blockedToolResult(toolInstance, authErr); ok {
+					result := coreToolResultFromSession(blockedResult)
+					return &result, nil
+				}
+				return nil, authErr
+			}
+			return nil, nil
+		},
 		ToolExecutor: func(actionCtx *coreagent.ActionContext, toolInstance coreagent.Tool, call coreagent.ToolCall, toolCtx coreagent.ToolContext) (coreagent.ToolResult, error) {
 			if actionCtx != nil {
 				part := actionCtx.GetToolPart(call.ID)
@@ -256,6 +274,12 @@ func (r *AgentRunner) buildCoreRunner(runtimeConfig *RuntimeConfig, input Proces
 						toolCtx.Values = map[string]interface{}{}
 					}
 					toolCtx.Values["tool_event_handler"] = newCoreToolProgressReporter(actionCtx, part)
+				}
+				if call.ID != "" && actionCtx.IsToolPreAuthorized(call.ID) {
+					if toolCtx.Values == nil {
+						toolCtx.Values = map[string]interface{}{}
+					}
+					toolCtx.Values[tool.ToolContextSkipAuthorizeKey] = true
 				}
 			}
 			result, execErr := toolInstance.Execute(toolCtx, call.Arguments)

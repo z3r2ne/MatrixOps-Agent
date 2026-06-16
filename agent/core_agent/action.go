@@ -29,6 +29,7 @@ type ActionContext struct {
 }
 
 const actionCtxToolPartsKey = "tool_parts"
+const actionCtxPreAuthorizedToolsKey = "tool_pre_authorized"
 
 func (c *ActionContext) SetToolPart(callID string, part *Part) {
 	if c == nil || c.State == nil || callID == "" || part == nil {
@@ -59,6 +60,44 @@ func (c *ActionContext) GetToolPart(callID string) *Part {
 	}
 	part, _ := value.(*Part)
 	return part
+}
+
+func (c *ActionContext) preAuthorizedTools() *sync.Map {
+	if c == nil || c.State == nil {
+		return nil
+	}
+	if c.State.Data == nil {
+		c.State.Data = map[string]any{}
+	}
+	stored, _ := c.State.Data[actionCtxPreAuthorizedToolsKey].(*sync.Map)
+	if stored == nil {
+		stored = &sync.Map{}
+		c.State.Data[actionCtxPreAuthorizedToolsKey] = stored
+	}
+	return stored
+}
+
+func (c *ActionContext) MarkToolPreAuthorized(callID string) {
+	if callID == "" {
+		return
+	}
+	stored := c.preAuthorizedTools()
+	if stored == nil {
+		return
+	}
+	stored.Store(callID, true)
+}
+
+func (c *ActionContext) IsToolPreAuthorized(callID string) bool {
+	if callID == "" {
+		return false
+	}
+	stored := c.preAuthorizedTools()
+	if stored == nil {
+		return false
+	}
+	_, ok := stored.Load(callID)
+	return ok
 }
 
 func (c *ActionContext) NewTextPart(actionName string) *Part {

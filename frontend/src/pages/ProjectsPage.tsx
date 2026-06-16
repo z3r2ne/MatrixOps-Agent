@@ -1,11 +1,10 @@
-import React, { useEffect, useMemo, useState } from "react"
-import { Plus, FolderOpen, FolderPlus, Trash2, Edit, Search, FileText } from "lucide-react"
+import React, { useEffect, useState } from "react"
+import { Plus, FolderOpen, Trash2, Edit, Search } from "lucide-react"
 import { motion } from "framer-motion"
 import { api, MemoryLibrary, Project, ToolInfo } from "@/lib/api"
 import { MemoryLibrarySelector } from "@/components/projects/MemoryLibrarySelector"
 import { ProjectToolPermissionPanel } from "@/components/projects/ProjectToolPermissionPanel"
 import { Button } from "@/components/ui/button"
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
   Dialog,
@@ -95,9 +94,22 @@ export function ProjectsPage() {
     void loadDependencies()
   }, [])
 
+  const isProjectNameTaken = (name: string, excludeId?: number) => {
+    const normalized = name.trim().toLowerCase()
+    if (!normalized) return false
+    return projects.some((project) => {
+      if (excludeId != null && project.id === excludeId) return false
+      return project.name.trim().toLowerCase() === normalized
+    })
+  }
+
   const handleCreate = async () => {
     if (!newProjectName.trim() || !newProjectPath.trim()) {
       toast.error("请填写项目名称和路径")
+      return
+    }
+    if (isProjectNameTaken(newProjectName)) {
+      toast.error("项目名称已存在")
       return
     }
 
@@ -164,6 +176,10 @@ export function ProjectsPage() {
 
   const handleSaveEdit = async () => {
     if (!editProject || !editName.trim() || !editPath.trim()) return
+    if (isProjectNameTaken(editName, editProject.id)) {
+      toast.error("项目名称已存在")
+      return
+    }
 
     try {
       await api.updateProject(editProject.id, {
@@ -278,9 +294,9 @@ export function ProjectsPage() {
 
         {/* Projects Grid */}
         {isLoading ? (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {[1, 2, 3, 4, 5, 6].map((i) => (
-              <Skeleton key={i} className="h-40" />
+              <Skeleton key={i} className="h-14 rounded-lg" />
             ))}
           </div>
         ) : filteredProjects.length === 0 ? (
@@ -303,69 +319,49 @@ export function ProjectsPage() {
           </div>
         ) : (
           <motion.div
-            className="grid auto-rows-fr gap-3 sm:grid-cols-2 xl:grid-cols-4"
+            className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ duration: 0.3 }}
+            transition={{ duration: 0.2 }}
           >
             {filteredProjects.map((project, index) => (
               <motion.div
                 key={project.id}
-                className="h-full"
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: index * 0.05 }}
+                transition={{ duration: 0.2, delay: index * 0.02 }}
               >
-                <Card
-                  className="group flex h-full min-h-[132px] flex-col transition-all hover:shadow-md"
-                >
-                  <CardHeader className="pb-2">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex min-w-0 flex-1 items-start gap-2">
-                        <div className="bg-primary/10 p-2">
-                          <FolderOpen className="h-4 w-4 text-primary" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <CardTitle className="min-h-[2.5rem] text-base leading-5">
-                            <span className="line-clamp-2 break-all">{project.name}</span>
-                          </CardTitle>
-                        </div>
-                      </div>
-                      <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-7 w-7"
-                          onClick={(e) => openEditDialog(e, project)}
-                        >
-                          <Edit className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-7 w-7 text-destructive hover:text-destructive"
-                          onClick={(e) => handleDelete(e, project.id)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="flex flex-1 flex-col space-y-2 pt-0">
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <FolderPlus className="h-3 w-3 shrink-0" />
-                      <span className="truncate">{project.path}</span>
-                    </div>
-                    <div className="min-h-[2.25rem]">
-                      {project.prompt ? (
-                        <div className="flex items-start gap-2 text-xs text-muted-foreground">
-                          <FileText className="mt-0.5 h-3 w-3 flex-shrink-0" />
-                          <span className="line-clamp-2">{project.prompt}</span>
-                        </div>
-                      ) : null}
-                    </div>
-                  </CardContent>
-                </Card>
+                <div className="group flex items-center gap-3 rounded-lg border border-border/60 bg-card px-3 py-2.5 transition-colors hover:border-border hover:bg-muted/20">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10">
+                    <FolderOpen className="h-4 w-4 text-primary" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-foreground" title={project.name}>
+                      {project.name}
+                    </p>
+                    <p className="truncate text-xs text-muted-foreground" title={project.path}>
+                      {project.path}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7"
+                      onClick={(e) => openEditDialog(e, project)}
+                    >
+                      <Edit className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7 text-destructive hover:text-destructive"
+                      onClick={(e) => handleDelete(e, project.id)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
               </motion.div>
             ))}
           </motion.div>

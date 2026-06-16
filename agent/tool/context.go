@@ -8,6 +8,9 @@ import (
 var ErrToolExecutionCancelledByUser = errors.New("tool execution cancelled by user")
 var ErrTaskExecutionCancelledByUser = errors.New("task execution cancelled by user")
 
+// ToolContextSkipAuthorizeKey 为 true 时 session 层跳过 authorizeToolCall（已在 core agent 执行前完成授权）。
+const ToolContextSkipAuthorizeKey = "tool_skip_authorize"
+
 type ExecutionController interface {
 	RegisterCancelableToolCall(callID string, toolName string, cancel context.CancelCauseFunc)
 	FinishCancelableToolCall(callID string)

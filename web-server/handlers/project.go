@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -24,6 +25,32 @@ type ProjectHandler struct {
 // NewProjectHandler 创建项目处理器
 func NewProjectHandler(db *gorm.DB) *ProjectHandler {
 	return &ProjectHandler{db: db}
+}
+
+func (h *ProjectHandler) validateProjectName(name string, excludeID uint) error {
+	normalized := database.NormalizeProjectName(name)
+	if normalized == "" {
+		return errors.New("项目名称不能为空")
+	}
+	if err := database.EnsureProjectNameAvailable(h.db, normalized, excludeID); err != nil {
+		if errors.Is(err, database.ErrProjectNameExists) {
+			return errors.New("项目名称已存在")
+		}
+		return err
+	}
+	return nil
+}
+
+func writeProjectNameValidationError(c *gin.Context, err error) bool {
+	if err == nil {
+		return false
+	}
+	status := http.StatusBadRequest
+	if errors.Is(err, database.ErrProjectNameExists) || err.Error() == "项目名称已存在" {
+		status = http.StatusConflict
+	}
+	c.JSON(status, gin.H{"error": err.Error()})
+	return true
 }
 
 func (h *ProjectHandler) normalizeMemoryLibraryIDs(ids []uint) ([]uint, error) {
@@ -250,9 +277,11 @@ func (h *ProjectHandler) CreateStandaloneProject(c *gin.Context) {
 		return
 	}
 
-	var projectPath string
+	if err := h.validateProjectName(req.Name, 0); writeProjectNameValidationError(c, err) {
+		return
+	}
 
-	// 使用项目路径（独立项目必须提供路径）
+	var projectPath string
 	if req.Path == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "必须提供项目路径"})
 		return
@@ -274,7 +303,7 @@ func (h *ProjectHandler) CreateStandaloneProject(c *gin.Context) {
 	}
 
 	project := models.Project{
-		Name:             req.Name,
+		Name:             database.NormalizeProjectName(req.Name),
 		Path:             projectPath,
 		WorktreePath:     projectPath,
 		Icon:             req.Icon,
@@ -329,6 +358,10 @@ func (h *ProjectHandler) CreateProject(c *gin.Context) {
 		return
 	}
 
+	if err := h.validateProjectName(req.Name, 0); writeProjectNameValidationError(c, err) {
+		return
+	}
+
 	var projectPath string
 
 	if req.CreateNew {
@@ -377,7 +410,7 @@ func (h *ProjectHandler) CreateProject(c *gin.Context) {
 	}
 
 	project := models.Project{
-		Name:             req.Name,
+		Name:             database.NormalizeProjectName(req.Name),
 		Path:             projectPath,
 		WorktreePath:     projectPath,
 		Icon:             req.Icon,
@@ -428,7 +461,10 @@ func (h *ProjectHandler) UpdateProject(c *gin.Context) {
 
 	// 更新字段
 	if req.Name != nil {
-		project.Name = *req.Name
+		if err := h.validateProjectName(*req.Name, pid); writeProjectNameValidationError(c, err) {
+			return
+		}
+		project.Name = database.NormalizeProjectName(*req.Name)
 	}
 	if req.Path != nil {
 		if !checkPathExists(*req.Path) {

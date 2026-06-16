@@ -76,3 +76,31 @@ func TestCreateProjectUsesDefaultToolPermissionsWhenOmitted(t *testing.T) {
 		t.Fatalf("write permission = %q", values["write"])
 	}
 }
+
+func TestCreateStandaloneProjectRejectsDuplicateName(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	db := setupProjectHandlerTestDB(t)
+	firstPath := t.TempDir()
+	secondPath := t.TempDir()
+
+	router := gin.New()
+	handler := NewProjectHandler(db)
+	router.POST("/projects", handler.CreateStandaloneProject)
+
+	create := func(name, path string) int {
+		body := bytes.NewBufferString(`{"name":"` + name + `","path":"` + path + `"}`)
+		req := httptest.NewRequest(http.MethodPost, "/projects", body)
+		req.Header.Set("Content-Type", "application/json")
+		resp := httptest.NewRecorder()
+		router.ServeHTTP(resp, req)
+		return resp.Code
+	}
+
+	if status := create("MatrixOps", firstPath); status != http.StatusCreated {
+		t.Fatalf("first create status = %d", status)
+	}
+	if status := create("matrixops", secondPath); status != http.StatusConflict {
+		t.Fatalf("duplicate create status = %d, want %d", status, http.StatusConflict)
+	}
+}
