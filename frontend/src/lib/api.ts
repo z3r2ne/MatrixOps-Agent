@@ -480,6 +480,18 @@ export interface TerminalPollResponse {
   workDir: string;
 }
 
+export interface TaskFilesystemRoot {
+  id: string;
+  label: string;
+  path: string;
+}
+
+export interface TaskFilesystemEntry {
+  name: string;
+  path: string;
+  isDir: boolean;
+}
+
 export interface WorktreeInfo {
   path: string;
   branch: string;
@@ -1436,6 +1448,36 @@ class ApiClient {
     return this.request<{ ok: boolean }>(`/terminals/sessions/${id}`, {
       method: 'DELETE',
       skipErrorNotification: true,
+    });
+  }
+
+  async getTaskFilesystemRoots(taskId: number): Promise<{ roots: TaskFilesystemRoot[] }> {
+    return this.request<{ roots: TaskFilesystemRoot[] }>(`/tasks/${taskId}/filesystem/roots`);
+  }
+
+  async listTaskFilesystem(taskId: number, root: string, path = ''): Promise<TaskFilesystemEntry[]> {
+    const params = new URLSearchParams({ root });
+    if (path) params.set('path', path);
+    const response = await this.request<{ entries: TaskFilesystemEntry[] }>(
+      `/tasks/${taskId}/filesystem/list?${params.toString()}`,
+    );
+    return response.entries;
+  }
+
+  async readTaskFilesystem(taskId: number, root: string, path: string): Promise<{ content: string; binary: boolean }> {
+    const params = new URLSearchParams({ root, path });
+    return this.request<{ content: string; binary: boolean }>(
+      `/tasks/${taskId}/filesystem/read?${params.toString()}`,
+    );
+  }
+
+  async writeTaskFilesystem(
+    taskId: number,
+    data: { root: string; path: string; content: string },
+  ): Promise<{ ok: boolean }> {
+    return this.request<{ ok: boolean }>(`/tasks/${taskId}/filesystem/write`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
     });
   }
 

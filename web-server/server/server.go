@@ -399,6 +399,10 @@ func registerAPI(r *gin.Engine, app *app.App) {
 			tasks.POST("/:id/queue/:itemId/send-next", taskHandler.SendNextTaskQueueItem)
 			tasks.POST("/:id/user-input-files", taskHandler.UploadTaskUserInputFiles)
 			tasks.GET("/:id/user-input-files", taskHandler.GetTaskUserInputFile)
+			tasks.GET("/:id/filesystem/roots", taskHandler.GetTaskFilesystemRoots)
+			tasks.GET("/:id/filesystem/list", taskHandler.ListTaskFilesystem)
+			tasks.GET("/:id/filesystem/read", taskHandler.ReadTaskFilesystem)
+			tasks.PUT("/:id/filesystem/write", taskHandler.WriteTaskFilesystem)
 
 			// Git 操作
 			tasks.GET("/:id/git/diff", gitHandler.GetTaskDiff)

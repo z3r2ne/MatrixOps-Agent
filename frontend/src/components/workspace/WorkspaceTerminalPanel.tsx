@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { FitAddon } from "@xterm/addon-fit";
 import { Terminal as XTerm } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
@@ -17,8 +17,6 @@ export function WorkspaceTerminalPanel({ sessionId, visible }: WorkspaceTerminal
   const cursorRef = useRef(0);
   const inputBufferRef = useRef("");
   const resizeFrameRef = useRef<number | null>(null);
-  const [workDir, setWorkDir] = useState("");
-  const [closed, setClosed] = useState(false);
 
   const theme = useMemo(
     () => ({
@@ -106,7 +104,6 @@ export function WorkspaceTerminalPanel({ sessionId, visible }: WorkspaceTerminal
   useEffect(() => {
     cursorRef.current = 0;
     inputBufferRef.current = "";
-    setClosed(false);
     const terminal = terminalRef.current;
     if (terminal) {
       terminal.reset();
@@ -132,10 +129,8 @@ export function WorkspaceTerminalPanel({ sessionId, visible }: WorkspaceTerminal
           terminalRef.current?.write(data.output);
         }
         cursorRef.current = data.cursor;
-        setWorkDir(data.workDir || "");
-        setClosed(data.closed);
       } catch {
-        setClosed(true);
+        // keep polling; terminal panel stays mounted while hidden
       }
     }, 250);
     return () => window.clearInterval(poll);
@@ -153,12 +148,6 @@ export function WorkspaceTerminalPanel({ sessionId, visible }: WorkspaceTerminal
 
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-slate-950">
-      <div className="flex items-center justify-between border-b border-slate-800 px-3 py-2 text-[11px] text-slate-300">
-        <span className="truncate" title={workDir || ""}>{workDir || "终端"}</span>
-        <span className={closed ? "text-amber-400" : "text-emerald-400"}>
-          {closed ? "已关闭" : "运行中"}
-        </span>
-      </div>
       <div ref={containerRef} className="min-h-0 flex-1 overflow-hidden px-2 py-2" />
     </div>
   );

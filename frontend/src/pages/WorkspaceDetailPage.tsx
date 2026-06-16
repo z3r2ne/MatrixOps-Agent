@@ -5,7 +5,7 @@ import {
   ResizablePanel, 
   ResizablePanelGroup 
 } from "@/components/ui/resizable"
-import { Plus, RefreshCw, Loader2, Search, Layers, FolderOpen, FolderPlus, Bot, GitBranch, Terminal, X, ChevronRight, MoreVertical } from "lucide-react"
+import { Plus, RefreshCw, Loader2, Search, Layers, FolderOpen, FolderPlus, Bot, GitBranch, ChevronRight, MoreVertical } from "lucide-react"
 import { api, Task, TaskExecution, Project, MessageTokens, Worker, BranchInfo, type WorkspaceResponse, type TaskListGroupMode, type TaskMessageQueueItem, type MemoryLibrary, type TaskMemoryLibraryMode } from "@/lib/api"
 import { normalizeTaskQueuePayload } from "@/lib/taskQueue"
 import { Button } from "@/components/ui/button"
@@ -14,6 +14,10 @@ import { Textarea } from "@/components/ui/textarea"
 import { TaskCard, type TaskCardProps } from "@/components/workspace/TaskCard"
 import { ChatInterfaceV2 } from "@/components/workspace/ChatInterfaceV2"
 import { WorkspaceTerminalPanel } from "@/components/workspace/WorkspaceTerminalPanel"
+import { WorkbenchPanelLauncher } from "@/components/workbench/WorkbenchPanelLauncher"
+import { WorkbenchPanelOverlay } from "@/components/workbench/WorkbenchPanelOverlay"
+import { WorkbenchFilesystemPanel } from "@/components/workbench/WorkbenchFilesystemPanel"
+import { WORKBENCH_PANEL_LIST, type WorkbenchPanelId } from "@/components/workbench/types"
 import { ExecutionLogsDialog } from "@/components/workspace/ExecutionLogsDialog"
 import { SessionListDialog } from "@/components/workspace/SessionListDialog"
 import { SessionInfoDialog } from "@/components/workspace/SessionInfoDialog"
@@ -173,8 +177,9 @@ export function WorkspaceDetailPage({
   const [createTaskMemoryLibraryMode, setCreateTaskMemoryLibraryMode] = useState<TaskMemoryLibraryMode>("none")
   const [createTaskMemoryLibraryIds, setCreateTaskMemoryLibraryIds] = useState<number[]>([])
   const [terminalSessionIdsByTaskId, setTerminalSessionIdsByTaskId] = useState<Map<number, string>>(new Map())
-  const [showTerminalForTaskId, setShowTerminalForTaskId] = useState<number | null>(null)
-  const [creatingTerminal, setCreatingTerminal] = useState(false)
+  const [filesystemMountedTaskIds, setFilesystemMountedTaskIds] = useState<Set<number>>(new Set())
+  const [visibleWorkbenchPanelByTaskId, setVisibleWorkbenchPanelByTaskId] = useState<Map<number, WorkbenchPanelId>>(new Map())
+  const [workbenchPanelLoadingId, setWorkbenchPanelLoadingId] = useState<WorkbenchPanelId | null>(null)
   
   // Search and Group
   const [searchQuery, setSearchQuery] = useState("")
@@ -781,65 +786,152 @@ export function WorkspaceDetailPage({
     return terminalSessionIdsByTaskId.get(selectedTaskId) ?? null
   }, [selectedTaskId, terminalSessionIdsByTaskId])
 
-  const showTerminal = useMemo(() => {
-    return !!selectedTaskId && showTerminalForTaskId === selectedTaskId
-  }, [selectedTaskId, showTerminalForTaskId])
+  const activeWorkbenchPanelId = useMemo(() => {
+    if (!selectedTaskId) return null
+    return visibleWorkbenchPanelByTaskId.get(selectedTaskId) ?? null
+  }, [selectedTaskId, visibleWorkbenchPanelByTaskId])
 
-  useEffect(() => {
-    // 右侧内容与任务卡片绑定：切换任务时自动退出终端视图
-    setShowTerminalForTaskId(null)
+  const showWorkbenchPanel = activeWorkbenchPanelId != null
+
+  const handleHideWorkbenchPanel = useCallback(() => {
+    if (!selectedTaskId) return
+    setVisibleWorkbenchPanelByTaskId((prev) => {
+      if (!prev.has(selectedTaskId)) return prev
+      const next = new Map(prev)
+      next.delete(selectedTaskId)
+      return next
+    })
   }, [selectedTaskId])
 
-  const handleToggleTerminal = useCallback(async () => {
+  const ensureTerminalSession = useCallback(async () => {
     if (!selectedTaskId) {
-      toast.error("请先选择一个任务再打开终端")
-      return
+      throw new Error("请先选择一个任务")
     }
-    if (showTerminal) {
-      setShowTerminalForTaskId(null)
-      return
+    const existing = terminalSessionIdsByTaskId.get(selectedTaskId)
+    if (existing) {
+      return existing
     }
-    if (terminalSessionId) {
-      setShowTerminalForTaskId(selectedTaskId)
-      return
-    }
-    setCreatingTerminal(true)
-    try {
-      const session = await api.createTerminalSession({ workDir: activeProjectPath || "" })
-      setTerminalSessionIdsByTaskId(prev => {
-        const next = new Map(prev)
-        next.set(selectedTaskId, session.id)
-        return next
-      })
-      setShowTerminalForTaskId(selectedTaskId)
-    } catch (error) {
-      console.error("Failed to create terminal session:", error)
-      toast.error(error instanceof Error ? error.message : "打开终端失败")
-    } finally {
-      setCreatingTerminal(false)
-    }
-  }, [activeProjectPath, selectedTaskId, showTerminal, terminalSessionId])
+    const session = await api.createTerminalSession({ workDir: activeProjectPath || "" })
+    setTerminalSessionIdsByTaskId((prev) => {
+      const next = new Map(prev)
+      next.set(selectedTaskId, session.id)
+      return next
+    })
+    return session.id
+  }, [activeProjectPath, selectedTaskId, terminalSessionIdsByTaskId])
 
-  const handleCloseTerminal = useCallback(async () => {
-    const sessionId = terminalSessionId
-    setShowTerminalForTaskId(null)
-    if (selectedTaskId) {
-      setTerminalSessionIdsByTaskId(prev => {
-        if (!prev.has(selectedTaskId)) return prev
-        const next = new Map(prev)
-        next.delete(selectedTaskId)
-        return next
-      })
-    }
-    if (!sessionId) {
+  const handleSelectWorkbenchPanel = useCallback(async (panelId: WorkbenchPanelId) => {
+    if (!selectedTaskId) {
+      toast.error("请先选择一个任务")
       return
     }
-    try {
-      await api.closeTerminalSession(sessionId)
-    } catch (error) {
-      console.error("Failed to close terminal session:", error)
+    if (panelId === "terminal" && !activeProjectPath) {
+      toast.error("当前任务没有可用项目路径，无法打开终端")
+      return
     }
-  }, [selectedTaskId, terminalSessionId])
+
+    setWorkbenchPanelLoadingId(panelId)
+    try {
+      if (panelId === "terminal") {
+        await ensureTerminalSession()
+      }
+      if (panelId === "filesystem") {
+        setFilesystemMountedTaskIds((prev) => {
+          if (prev.has(selectedTaskId)) return prev
+          const next = new Set(prev)
+          next.add(selectedTaskId)
+          return next
+        })
+      }
+      setVisibleWorkbenchPanelByTaskId((prev) => {
+        const next = new Map(prev)
+        next.set(selectedTaskId, panelId)
+        return next
+      })
+    } catch (error) {
+      console.error("Failed to open workbench panel:", error)
+      toast.error(error instanceof Error ? error.message : "打开面板失败")
+    } finally {
+      setWorkbenchPanelLoadingId(null)
+    }
+  }, [activeProjectPath, ensureTerminalSession, selectedTaskId])
+
+  const workbenchPanelContent = useMemo(() => {
+    if (activeWorkbenchPanelId === "terminal") {
+      if (!terminalSessionId) {
+        return (
+          <div className="flex min-h-0 flex-1 items-center justify-center bg-slate-950 text-sm text-muted-foreground">
+            正在准备终端...
+          </div>
+        )
+      }
+      return (
+        <WorkspaceTerminalPanel
+          sessionId={terminalSessionId}
+          visible={showWorkbenchPanel}
+        />
+      )
+    }
+    return null
+  }, [activeWorkbenchPanelId, showWorkbenchPanel, terminalSessionId])
+
+  const workbenchAlternateContent = useMemo(() => {
+    const panels: React.ReactNode[] = []
+
+    if (terminalSessionId) {
+      panels.push(
+        <WorkbenchPanelOverlay
+          key="terminal"
+          visible={showWorkbenchPanel && activeWorkbenchPanelId === "terminal"}
+          onClose={handleHideWorkbenchPanel}
+        >
+          <WorkspaceTerminalPanel
+            sessionId={terminalSessionId}
+            visible={showWorkbenchPanel && activeWorkbenchPanelId === "terminal"}
+          />
+        </WorkbenchPanelOverlay>,
+      )
+    }
+
+    if (selectedTaskId && filesystemMountedTaskIds.has(selectedTaskId)) {
+      panels.push(
+        <WorkbenchPanelOverlay
+          key="filesystem"
+          visible={showWorkbenchPanel && activeWorkbenchPanelId === "filesystem"}
+          onClose={handleHideWorkbenchPanel}
+        >
+          <WorkbenchFilesystemPanel
+            taskId={selectedTaskId}
+            visible={showWorkbenchPanel && activeWorkbenchPanelId === "filesystem"}
+          />
+        </WorkbenchPanelOverlay>,
+      )
+    }
+
+    if (panels.length > 0) {
+      return <>{panels}</>
+    }
+
+    if (workbenchPanelContent) {
+      return (
+        <WorkbenchPanelOverlay
+          visible={showWorkbenchPanel}
+          onClose={handleHideWorkbenchPanel}
+        >
+          {workbenchPanelContent}
+        </WorkbenchPanelOverlay>
+      )
+    }
+    return null
+  }, [
+    activeWorkbenchPanelId,
+    filesystemMountedTaskIds,
+    handleHideWorkbenchPanel,
+    selectedTaskId,
+    showWorkbenchPanel,
+    terminalSessionId,
+    workbenchPanelContent,
+  ])
 
   const createTaskProjectOptions = useMemo<ComboboxOption[]>(
     () => [
@@ -1928,42 +2020,18 @@ export function WorkspaceDetailPage({
               onMessageQueueChange={selectedTaskId ? (queue) => void handleUpdateTaskQueue(selectedTaskId, queue) : undefined}
               onSendNextQueueItem={selectedTaskId ? (itemId) => void handleSendNextQueueItem(selectedTaskId, itemId) : undefined}
               headerExtra={
-                <>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7"
-                    onClick={() => {
-                      void handleToggleTerminal()
-                    }}
-                    disabled={creatingTerminal || !activeProjectPath}
-                  >
-                    {creatingTerminal ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Terminal className="h-3.5 w-3.5" />}
-                  </Button>
-                  {terminalSessionId ? (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                      onClick={() => {
-                        void handleCloseTerminal()
-                      }}
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </Button>
-                  ) : null}
-                </>
+                <WorkbenchPanelLauncher
+                  panels={WORKBENCH_PANEL_LIST}
+                  activePanelId={activeWorkbenchPanelId}
+                  panelLoadingId={workbenchPanelLoadingId}
+                  disabled={!selectedTaskId || createTaskLoading || createTaskSubmitting}
+                  onSelectPanel={(panelId) => {
+                    void handleSelectWorkbenchPanel(panelId)
+                  }}
+                />
               }
-              alternateContent={
-                terminalSessionId ? (
-                  <WorkspaceTerminalPanel sessionId={terminalSessionId} visible={showTerminal} />
-                ) : (
-                  <div className="flex min-h-0 flex-1 items-center justify-center text-sm text-muted-foreground">
-                    正在准备终端...
-                  </div>
-                )
-              }
-              showAlternateContent={showTerminal}
+              alternateContent={workbenchAlternateContent}
+              showAlternateContent={showWorkbenchPanel}
             />
             {TASK_SIDE_WORKBENCH_ENABLED ? (
               <TaskSideWorkbench
