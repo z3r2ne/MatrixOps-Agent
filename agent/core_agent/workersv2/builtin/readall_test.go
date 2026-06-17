@@ -191,8 +191,8 @@ func TestReadAllIncludesFrontendEngineerWorker(t *testing.T) {
 	if def.Name != "frontend_engineer" {
 		t.Fatalf("unexpected worker name: %q", def.Name)
 	}
-	if hasEnabledTool(def, "run_worker_task") {
-		t.Fatalf("frontend_engineer worker should not have run_worker_task, got: %+v", def.EnabledTools)
+	if !hasEnabledTool(def, "run_worker_task") {
+		t.Fatalf("frontend_engineer worker should have run_worker_task, got: %+v", def.EnabledTools)
 	}
 	if !strings.Contains(def.SystemPrompt, "选择 `frontend_engineer`") {
 		t.Fatalf("frontend_engineer prompt should describe when main worker delegates to this worker")

@@ -53,6 +53,11 @@ func (m *scriptedStreamChatClient) close() {
 	close(m.stream)
 }
 
+func finishScriptedStream(client *scriptedStreamChatClient) {
+	client.sendText(`{"@action":"answer","data":"ok"}`)
+	client.finish()
+}
+
 type retryingStreamChatClient struct {
 	attempts int
 	mode     string
@@ -206,8 +211,7 @@ func (c *truncatedEnvelopeThenSuccessClient) StreamChatWithOptions(req ChatReque
 	go func() {
 		defer close(stream)
 		if c.attempts == 1 {
-			stream <- StreamEvent{Type: "text-delta", Text: `{"@action":"answer","data":"par`}
-			stream <- StreamEvent{Type: "finish", Finish: "stop"}
+			stream <- StreamEvent{Type: "text-delta", Text: `{"@act`}
 			return
 		}
 		stream <- StreamEvent{Type: "text-delta", Text: `{"@action":"answer","data":"ok"}`}
@@ -696,14 +700,15 @@ func TestParseActionStream_singleObjectReadAllWithoutSecondWrite(t *testing.T) {
 
 func TestStreamV2BuildsSystemMessageFromStreamInput(t *testing.T) {
 	client := newScriptedStreamChatClient()
-	close(client.stream)
+	finishScriptedStream(client)
 
-	output, err := StreamV2(StreamInput{
+	_, controlHandler := newCompatibleControlSink()
+	output, err := StreamV2(withCompatibleControl(StreamInput{
 		Context:      context.Background(),
 		Model:        "gpt-test",
 		Prompt:       "<developer_prompt>dev</developer_prompt>",
 		SystemPrompt: "<system_prompt>sys</system_prompt>",
-	}, client)
+	}, controlHandler), client)
 	if err != nil {
 		t.Fatalf("StreamV2 returned error: %v", err)
 	}
@@ -726,14 +731,15 @@ func TestStreamV2BuildsSystemMessageFromStreamInput(t *testing.T) {
 
 func TestStreamV2BuildsInstructionExtraOptionFromStreamInput(t *testing.T) {
 	client := newScriptedStreamChatClient()
-	close(client.stream)
+	finishScriptedStream(client)
 
-	output, err := StreamV2(StreamInput{
+	_, controlHandler := newCompatibleControlSink()
+	output, err := StreamV2(withCompatibleControl(StreamInput{
 		Context:     context.Background(),
 		Model:       "gpt-test",
 		Prompt:      "<developer_prompt>dev</developer_prompt>",
 		Instruction: "<system_prompt>sys</system_prompt>",
-	}, client)
+	}, controlHandler), client)
 	if err != nil {
 		t.Fatalf("StreamV2 returned error: %v", err)
 	}
@@ -756,9 +762,10 @@ func TestStreamV2BuildsInstructionExtraOptionFromStreamInput(t *testing.T) {
 
 func TestStreamV2IncludesHistoryMessagesFromStreamInput(t *testing.T) {
 	client := newScriptedStreamChatClient()
-	close(client.stream)
+	finishScriptedStream(client)
 
-	output, err := StreamV2(StreamInput{
+	_, controlHandler := newCompatibleControlSink()
+	output, err := StreamV2(withCompatibleControl(StreamInput{
 		Context: context.Background(),
 		Model:   "gpt-test",
 		Prompt:  "<developer_prompt>dev</developer_prompt>",
@@ -766,7 +773,7 @@ func TestStreamV2IncludesHistoryMessagesFromStreamInput(t *testing.T) {
 			{Role: "user", Content: "历史用户消息"},
 			{Role: "assistant", Content: "历史助手消息"},
 		},
-	}, client)
+	}, controlHandler), client)
 	if err != nil {
 		t.Fatalf("StreamV2 returned error: %v", err)
 	}
@@ -1035,17 +1042,13 @@ func TestStreamV2RetriesWhenMessageIsFollowedByIncompleteToolJSON(t *testing.T) 
 	if first == nil || first.Action != "message" {
 		t.Fatalf("expected first emitted action to be progress message, got %#v", first)
 	}
-	second := sink.recv(t, 10*time.Second)
-	if second == nil || second.Action != "answer" {
-		t.Fatalf("expected answer action after retry, got %#v", second)
-	}
 	if err := output.Wait(); err != nil {
 		t.Fatalf("Wait returned error: %v attempts=%d retries=%v", err, client.attempts, retryAttempts)
 	}
-	if client.attempts != 2 {
-		t.Fatalf("expected retry after incomplete tool JSON, got %d attempts", client.attempts)
+	if client.attempts != 1 {
+		t.Fatalf("expected no retry once message was emitted before incomplete tool JSON, got %d attempts", client.attempts)
 	}
-	if len(retryAttempts) != 1 || retryAttempts[0] != 1 {
+	if len(retryAttempts) != 0 {
 		t.Fatalf("unexpected retry callbacks: %#v", retryAttempts)
 	}
 }

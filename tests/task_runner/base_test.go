@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"matrixops/services"
 	"matrixops/services/task_runner"
@@ -84,10 +85,8 @@ func TestCreateAndRunTask(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateAndRunTask returned error: %v", err)
 	}
-	err = task_runner.WaitTask(task.ID)
-	if err != nil {
-		t.Fatalf("WaitTask returned error: %v", err)
-	}
+	defer agentKit.hub.Close()
+	waitTaskDone(t, agentKit.db, task.ID)
 	agentKit.waitHub()
 
 	mainReq := testutil.FindChatRequestWithUserInput(llmReq, inputText)
@@ -156,6 +155,7 @@ func TestCreateAndRunTaskFailed(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateAndRunTask returned error: %v", err)
 	}
+	defer agentKit.hub.Close()
 	err = task_runner.WaitTask(task.ID)
 	if err != nil {
 		t.Fatalf("WaitTask returned error: %v", err)
@@ -232,10 +232,8 @@ func TestRunTaskWithLLMConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateAndRunTask returned error: %v", err)
 	}
-	err = task_runner.WaitTask(task.ID)
-	if err != nil {
-		t.Fatalf("WaitTask returned error: %v", err)
-	}
+	defer agentKit.hub.Close()
+	waitTaskDone(t, agentKit.db, task.ID)
 	agentKit.waitHub()
 
 	mainReq := testutil.FindChatRequestWithUserInput(llmReq, inputText)
@@ -253,6 +251,23 @@ func TestRunTaskWithLLMConfig(t *testing.T) {
 	assert.Equal(t, []string{string(models.TaskStatusRunning), string(models.TaskStatusRunning), string(models.TaskStatusDone)}, taskStatus)
 }
 
+func waitTaskDone(t *testing.T, db *gorm.DB, taskID uint) {
+	t.Helper()
+	deadline := time.Now().Add(30 * time.Second)
+	for time.Now().Before(deadline) {
+		task, err := database.GetTaskByID(db, taskID)
+		if err != nil {
+			t.Fatalf("GetTaskByID: %v", err)
+		}
+		switch string(task.Status) {
+		case string(models.TaskStatusDone), string(models.TaskStatusFailed), string(models.TaskStatusCancelled):
+			return
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	t.Fatalf("task %d did not complete within 30s", taskID)
+}
+
 type agentTestKit struct {
 	db     *gorm.DB
 	hub    *services.GlobalWSHub
@@ -263,13 +278,12 @@ type agentTestKit struct {
 	worker    *models.Worker
 	llmConfig *models.LLMConfig
 
-	hubCallback     func(message []byte)
-	clientCallback  func(request llm.ChatRequest) (<-chan llm.StreamEvent, error)
+	hubCallback    func(message []byte)
+	clientCallback func(request llm.ChatRequest) (<-chan llm.StreamEvent, error)
 	waitWsHubListen func()
 }
 
 func (agentKit *agentTestKit) waitHub() {
-	agentKit.hub.Close()
 	agentKit.waitWsHubListen()
 }
 

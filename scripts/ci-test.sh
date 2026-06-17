@@ -49,6 +49,10 @@ run_module_tests() {
 
   if (
     cd "$ROOT/$module"
+    if [[ "$module" == "web-server" ]]; then
+      mkdir -p web/dist
+      touch web/dist/index.html
+    fi
     go test -count=1 ./... 2>&1 | tee -a "$module_log"
   ); then
     echo "- [pass] \`$module\`" >>"$SUMMARY_FILE"

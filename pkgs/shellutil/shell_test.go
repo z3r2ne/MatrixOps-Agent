@@ -1,6 +1,7 @@
 package shellutil
 
 import (
+	"os/exec"
 	"runtime"
 	"testing"
 )
@@ -30,12 +31,16 @@ func TestWrapCommandUsesPlatformSpecificFlags(t *testing.T) {
 		return
 	}
 
-	cmd, args, err := WrapCommand(Info{ID: "zsh", Command: "zsh"}, "echo hello")
+	bashPath, err := exec.LookPath("bash")
+	if err != nil {
+		t.Skip("bash not available")
+	}
+	cmd, args, err := WrapCommand(Info{ID: "bash", Command: "bash", Path: bashPath}, "echo hello")
 	if err != nil {
 		t.Fatalf("WrapCommand: %v", err)
 	}
-	if cmd != "zsh" {
-		t.Fatalf("cmd = %q, want %q", cmd, "zsh")
+	if cmd != bashPath {
+		t.Fatalf("cmd = %q, want %q", cmd, bashPath)
 	}
 	if len(args) != 2 || args[0] != "-lc" {
 		t.Fatalf("unexpected args: %#v", args)

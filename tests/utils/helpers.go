@@ -1,8 +1,6 @@
 package utils
 
 import (
-	"encoding/json"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -10,7 +8,6 @@ import (
 	"testing"
 
 	"matrixops/services"
-	types "matrixops/types"
 	database "pkgs/db"
 	"pkgs/db/models"
 	pkgtestutil "pkgs/testutil"
@@ -159,18 +156,12 @@ func NewMockWsHub(db *gorm.DB, msgHandle func(message []byte)) (*services.Global
 	go func() {
 		defer wg.Done()
 		for message := range client.Send {
-			var msg services.WSOutgoingMessage
-			if err := json.Unmarshal(message, &msg); err != nil {
-				panic(fmt.Errorf("failed to unmarshal message: %v", err))
-			}
-			if msg.Type == types.WSTypeEnd {
-				break
-			}
 			msgHandle(message)
 		}
 	}()
 
 	return hub, func() {
+		close(client.Send)
 		wg.Wait()
 	}
 }
