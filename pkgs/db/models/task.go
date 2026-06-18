@@ -29,6 +29,7 @@ const (
 	TaskMessageQueueSourceEmptyStreamRetry  = "empty_stream_retry"
 	TaskMessageQueueSourceReminder          = "reminder"
 	TaskMessageQueueSourceSilentToolWatchdog = "silent_tool_watchdog"
+	TaskMessageQueueSourceAsyncToolResult   = "async_tool_result"
 )
 
 // IsTaskMessageQueueSystem 判断队列项是否为系统消息。

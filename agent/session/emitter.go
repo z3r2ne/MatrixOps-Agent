@@ -189,8 +189,16 @@ func initEmitter(e *Emitter) {
 
 	// 会话更新（Update 方法中已经调用 storage，这里不需要再次调用）
 	em.On(EventSessionUpdated, func(args ...interface{}) {
-		// event := args[0].(SessionEvent)
-		// log.Printf("[Emitter] session.updated: %s", event.Info.ID)
+		if len(args) == 0 {
+			return
+		}
+		event, ok := args[0].(SessionEvent)
+		if !ok || event.Info == nil {
+			return
+		}
+		if err := storage.UpdateSession(e.db, event.Info); err != nil {
+			log.Printf("[Emitter] session.updated persist failed: %v", err)
+		}
 	})
 
 	// 会话删除

@@ -432,6 +432,7 @@ func registerAPI(r *gin.Engine, app *app.App) {
 			sessions.POST("/:id/memory/organization/preview", sessionHandler.PreviewSessionMemoryCompaction)
 			sessions.POST("/:id/memory/organization/preview/stream", sessionHandler.PreviewSessionMemoryCompactionStream)
 			sessions.POST("/:id/memory/organization/apply", sessionHandler.ApplySessionMemoryCompaction)
+			sessions.POST("/:id/memory/analysis", sessionHandler.AnalyzeSessionMemory)
 			sessions.PATCH("/:id/memory/entries/:entryId", sessionHandler.UpdateSessionMemoryEntry)
 			sessions.DELETE("/:id/memory/entries/:entryId", sessionHandler.DeleteSessionMemoryEntry)
 			sessions.GET("/:id/logs", taskHandler.GetSessionLogs)

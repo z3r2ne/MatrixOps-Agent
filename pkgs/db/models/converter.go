@@ -120,6 +120,12 @@ func SessionToModel(info *types.Info) *Session {
 	if info.Summary != nil {
 		s.Summary = JSONField{Data: info.Summary}
 	}
+	if info.MemoryAnalysis != nil {
+		s.MemoryAnalysis = JSONField{Data: info.MemoryAnalysis}
+	}
+	if info.CriticalInfo != nil {
+		s.CriticalInfo = JSONField{Data: info.CriticalInfo}
+	}
 	if info.Share != nil {
 		s.Share = JSONField{Data: info.Share}
 	}
@@ -209,6 +215,16 @@ func SessionFromModel(s *Session) *types.Info {
 
 	convertJSONField(s.Tokens.Data, &info.Tokens)
 	convertJSONField(s.EnabledSkills.Data, &info.EnabledSkills)
+	if s.MemoryAnalysis.Data != nil {
+		var analysis types.MemoryAnalysis
+		convertJSONField(s.MemoryAnalysis.Data, &analysis)
+		info.MemoryAnalysis = &analysis
+	}
+	if s.CriticalInfo.Data != nil {
+		var criticalInfo types.CriticalInfo
+		convertJSONField(s.CriticalInfo.Data, &criticalInfo)
+		info.CriticalInfo = &criticalInfo
+	}
 
 	return info
 }

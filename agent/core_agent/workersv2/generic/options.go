@@ -97,7 +97,7 @@ func WithWorkerFromDB(db *gorm.DB, name ...string) Option {
 			ProviderName:    provName,
 			Model:           strings.TrimSpace(w.Model),
 			Temperature:     0.0,
-			TopP:            w.TopP,
+			TopP:            models.EffectiveTopP(m.ModelSettings),
 			MaxOutputTokens: maxOut,
 			ProviderOptions: m.LLMConfig,
 		}

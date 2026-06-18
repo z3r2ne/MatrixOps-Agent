@@ -74,6 +74,14 @@ type ModelSettings struct {
 	ThinkingType string `json:"thinkingType"`
 }
 
+// EffectiveTopP 返回大模型配置中的 top_p；未设置时返回 0（请求中不发送该字段）。
+func EffectiveTopP(ms *ModelSettings) float64 {
+	if ms == nil || ms.TopP == nil {
+		return 0
+	}
+	return *ms.TopP
+}
+
 // EffectiveThinkingType 返回用于原生 OpenAI 请求的 thinking.type（仅来自 ModelSettings.ThinkingType）。
 // EnableThinking 见请求体 enable_thinking 字段，二者语义独立。
 func EffectiveThinkingType(ms *ModelSettings) string {

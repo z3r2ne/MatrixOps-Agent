@@ -88,11 +88,11 @@ func TestMemoryCompactionProviderOptionsOptionUsesConfiguredPlacement(t *testing
 		ModelSettings: &models.ModelSettings{
 			SystemPromptPlacement: "system",
 			OutputLimit:           4096,
+			TopP:                  floatPtr(0.9),
 		},
 		Worker: &models.Worker{
 			Model:       "compaction-model",
 			Temperature: floatPtr(0.1),
-			TopP:        0.9,
 		},
 		LLMConfig: &models.LLMConfig{
 			ID:                    2,
@@ -118,7 +118,6 @@ func TestMemoryCompactionProviderOptionsOptionUsesCompactionRuntime(t *testing.T
 		Worker: &models.Worker{
 			Model:       "compaction-model",
 			Temperature: floatPtr(0.1),
-			TopP:        0.9,
 		},
 		LLMConfig: &models.LLMConfig{
 			ID:      2,
@@ -127,7 +126,7 @@ func TestMemoryCompactionProviderOptionsOptionUsesCompactionRuntime(t *testing.T
 			APIKey:  "compaction",
 			Model:   "compaction-model",
 		},
-		ModelSettings: &models.ModelSettings{OutputLimit: 4096},
+		ModelSettings: &models.ModelSettings{OutputLimit: 4096, TopP: floatPtr(0.9)},
 	}
 
 	cfg := &generic.AgentConfig{}

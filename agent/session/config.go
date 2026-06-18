@@ -43,6 +43,7 @@ type AgentRunner struct {
 	isNewSession bool
 
 	messageQueue *taskqueue.Queue
+	queueAutoRun func()
 
 	// toolPermissionMu serializes project tool permission prompts so concurrent tool
 	// calls do not emit overlapping wait_user_input requests.
@@ -254,6 +255,7 @@ func NewAgentRunner(options ...AgentRunnerOption) (*AgentRunner, error) {
 		wg:                   sizewg.New(10),
 		isNewSession:         isNewSession,
 		messageQueue: config.messageQueue,
+		queueAutoRun: config.queueAutoRun,
 	}, nil
 }
 
@@ -313,6 +315,7 @@ type AgentRunnerConfig struct {
 
 	stallWatchdogTimeout          time.Duration
 	queueBroadcast                taskqueue.BroadcastFunc
+	queueAutoRun                  func()
 	messageQueue                  *taskqueue.Queue
 	deliverUserMessage            tool.DeliverUserMessageFunc
 }
@@ -531,6 +534,13 @@ func WithTaskID(taskID uint) AgentRunnerOption {
 func WithQueueBroadcaster(broadcast taskqueue.BroadcastFunc) AgentRunnerOption {
 	return func(c *AgentRunnerConfig) {
 		c.queueBroadcast = broadcast
+	}
+}
+
+// WithQueueAutoRun 在补充类队列消息入队后尝试自动启动任务（任务已结束时消费队列）。
+func WithQueueAutoRun(autoRun func()) AgentRunnerOption {
+	return func(c *AgentRunnerConfig) {
+		c.queueAutoRun = autoRun
 	}
 }
 

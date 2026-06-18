@@ -541,12 +541,42 @@ export interface SessionInfo {
   version: string;
   startSnapshot?: string;
   tokens?: MessageTokens;
+  memoryAnalysis?: SessionMemoryAnalysis | null;
+  criticalInfo?: SessionCriticalInfo | null;
   time: {
     created: number;
     updated: number;
     compacting?: number;
     archived?: number;
   };
+}
+
+export interface SessionMemoryAnalysis {
+  keywords: string[];
+  summary: string;
+  updatedAt: number;
+}
+
+export interface SessionCriticalInfo {
+  items: CriticalInfoItem[];
+}
+
+export interface CriticalInfoItem {
+  id: string;
+  type: string;
+  marker: string;
+  message: string;
+  createdAt: number;
+  asyncTask?: AsyncToolTaskMeta;
+}
+
+export interface AsyncToolTaskMeta {
+  callId: string;
+  toolName: string;
+  params?: Record<string, unknown>;
+  status: string;
+  startedAt: number;
+  taskId?: number;
 }
 
 export interface SessionPromptResponse {
@@ -2032,6 +2062,12 @@ class ApiClient {
     return this.request<{ message: string; count: number }>(`/sessions/${sessionId}/memory/entries/compress`, {
       method: 'POST',
       body: JSON.stringify({ ids }),
+    });
+  }
+
+  async analyzeSessionMemory(sessionId: string): Promise<SessionMemoryAnalysis> {
+    return this.request<SessionMemoryAnalysis>(`/sessions/${sessionId}/memory/analysis`, {
+      method: 'POST',
     });
   }
 

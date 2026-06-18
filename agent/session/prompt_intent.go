@@ -8,6 +8,7 @@ import (
 
 	"matrixops-agent/llm"
 	database "pkgs/db"
+	"pkgs/db/models"
 )
 
 // OutputSchema 定义输出的结构化 schema
@@ -52,12 +53,11 @@ func (r *AgentRunner) chatWithAI(runtimeConfig *RuntimeConfig, input string, res
 		modelOut = runtimeConfig.ModelSettings.OutputLimit
 	}
 	temperature := 0.0
-	topP := 0.0
+	topP := models.EffectiveTopP(runtimeConfig.ModelSettings)
 	if runtimeConfig.Worker != nil {
 		if runtimeConfig.Worker.Temperature != nil {
 			temperature = *runtimeConfig.Worker.Temperature
 		}
-		topP = runtimeConfig.Worker.TopP
 	}
 	// 调用 LLM（需要 LLM 客户端已配置）
 	chatReq := llm.ChatRequest{

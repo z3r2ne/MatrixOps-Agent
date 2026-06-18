@@ -191,6 +191,9 @@ func (r *TaskRuntime) runMatrixopsAgentPrompt(runCtx context.Context, sessionID 
 			agentsession.WithDirectory(r.workDir),
 			agentsession.WithTaskID(r.config.TaskID),
 			agentsession.WithQueueBroadcaster(r.wsHub.BroadcastTaskQueue),
+			agentsession.WithQueueAutoRun(func() {
+				_ = TryAutoRunTaskQueue(r.taskID, WithDB(r.db), WithWSHub(r.wsHub))
+			}),
 			// agentsession.WithTask(r.toTaskModel()),
 			agentsession.WithMergeMessage(r.config.MergeMessage),
 			agentsession.WithSessionID(r.config.SessionID),

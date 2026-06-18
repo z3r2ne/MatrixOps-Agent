@@ -180,7 +180,9 @@ func memoryCompactionProviderOptionsOption(runtime *MemoryCompactionRuntime) gen
 			if runtime.Worker.Temperature != nil {
 				c.LLM.Temperature = *runtime.Worker.Temperature
 			}
-			c.LLM.TopP = runtime.Worker.TopP
+		}
+		if runtime != nil {
+			c.LLM.TopP = models.EffectiveTopP(runtime.ModelSettings)
 		}
 		_, _, _, maxOut := memoryCompactionModelRequest(runtime)
 		if maxOut > 0 {

@@ -6,13 +6,19 @@ import {
   ResizablePanelGroup 
 } from "@/components/ui/resizable"
 import { Plus, RefreshCw, Loader2, Search, Layers, FolderOpen, FolderPlus, Bot, GitBranch, ChevronRight, MoreVertical } from "lucide-react"
-import { api, Task, TaskExecution, Project, MessageTokens, Worker, BranchInfo, type WorkspaceResponse, type TaskListGroupMode, type TaskMessageQueueItem, type MemoryLibrary, type TaskMemoryLibraryMode } from "@/lib/api"
+import { api, Task, TaskExecution, Project, MessageTokens, Worker, BranchInfo, type WorkspaceResponse, type TaskListGroupMode, type TaskMessageQueueItem, type MemoryLibrary, type TaskMemoryLibraryMode, type SessionMemoryAnalysis, type SessionCriticalInfo } from "@/lib/api"
 import { normalizeTaskQueuePayload } from "@/lib/taskQueue"
+import { collectTaskTree } from "@/lib/taskTree"
+import { loadSimulationTaskTree, resolveSimulationRootId } from "@/lib/simulationTasks"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { TaskCard, type TaskCardProps } from "@/components/workspace/TaskCard"
 import { ChatInterfaceV2 } from "@/components/workspace/ChatInterfaceV2"
+import { AgentSimulationView } from "@/components/workspace/AgentSimulationView"
+import { SessionMemorySummaryPanel } from "@/components/workspace/SessionMemorySummaryPanel"
+import { SessionAsyncToolPanel } from "@/components/workspace/SessionAsyncToolPanel"
+import type { WorkbenchViewMode } from "@/components/workspace/WorkbenchViewTabs"
 import { WorkspaceTerminalPanel } from "@/components/workspace/WorkspaceTerminalPanel"
 import { WorkbenchPanelLauncher } from "@/components/workbench/WorkbenchPanelLauncher"
 import { WorkbenchPanelOverlay } from "@/components/workbench/WorkbenchPanelOverlay"
@@ -186,6 +192,10 @@ export function WorkspaceDetailPage({
   const [groupMode, setGroupMode] = useState<TaskListGroupMode>(DEFAULT_TASK_LIST_GROUP_MODE)
   const [savingGroupMode, setSavingGroupMode] = useState(false)
   const [collapsedProjectGroups, setCollapsedProjectGroups] = useState<Set<string>>(new Set())
+  const [showMemorySummaryPanel, setShowMemorySummaryPanel] = useState(false)
+  const [sessionMemoryAnalysisById, setSessionMemoryAnalysisById] = useState<Map<string, SessionMemoryAnalysis>>(new Map())
+  const [sessionCriticalInfoById, setSessionCriticalInfoById] = useState<Map<string, SessionCriticalInfo>>(new Map())
+  const [workbenchViewMode, setWorkbenchViewMode] = useState<WorkbenchViewMode>("chat")
   const wbChrome = useElectronWorkbenchChrome()
   const electronWorkbenchLayout = Boolean(wbChrome)
   const showTaskListPanel = !wbChrome || !wbChrome.taskSidebarCollapsed
@@ -1207,6 +1217,31 @@ export function WorkspaceDetailPage({
 
   const rootTasks = useMemo(() => tasks.filter(task => !task.parentTaskId), [tasks])
 
+  const simulationRootId = useMemo(() => {
+    if (!selectedTaskId) return null
+    return resolveSimulationRootId(tasks, selectedTaskId)
+  }, [selectedTaskId, tasks])
+
+  const simulationSeedTasks = useMemo(() => {
+    if (!simulationRootId) return []
+    return collectTaskTree(tasks, simulationRootId)
+  }, [simulationRootId, tasks])
+
+  const showAlternateMainContent = workbenchViewMode === "simulation" || showWorkbenchPanel
+
+  const alternateMainContent = useMemo(() => {
+    if (workbenchViewMode === "simulation") {
+      return (
+        <AgentSimulationView
+          rootTaskId={simulationRootId}
+          tasks={simulationSeedTasks}
+          className="flex-1 min-h-0 w-full"
+        />
+      )
+    }
+    return workbenchAlternateContent
+  }, [workbenchViewMode, simulationRootId, simulationSeedTasks, workbenchAlternateContent])
+
   // 自动选择第一个任务（首次加载时）
   useEffect(() => {
     if (!isCreatingTask && !isLoading && tasks.length > 0 && selectedTaskId === null) {
@@ -1536,30 +1571,62 @@ export function WorkspaceDetailPage({
     return undefined
   }, [selectedExecution?.agentSessionId, selectedTask?.sessionId, selectedTaskId, sessionIds])
 
+  const refreshCurrentSessionInfo = useCallback(async (sessionId: string) => {
+    try {
+      const session = await api.getSessionInfo(sessionId)
+      if (session.tokens) {
+        setSessionTokens(prev => {
+          const next = new Map(prev)
+          next.set(sessionId, session.tokens!)
+          return next
+        })
+      }
+      setSessionMemoryAnalysisById(prev => {
+        const next = new Map(prev)
+        if (session.memoryAnalysis) {
+          next.set(sessionId, session.memoryAnalysis)
+        } else {
+          next.delete(sessionId)
+        }
+        return next
+      })
+      setSessionCriticalInfoById(prev => {
+        const next = new Map(prev)
+        if (session.criticalInfo?.items?.length) {
+          next.set(sessionId, session.criticalInfo)
+        } else {
+          next.delete(sessionId)
+        }
+        return next
+      })
+    } catch (error) {
+      console.error("Failed to load session info:", error)
+    }
+  }, [])
+
   useEffect(() => {
     if (!currentSessionId) return
     if (sessionTokens.has(currentSessionId)) return
 
     let cancelled = false
-    api.getSessionInfo(currentSessionId)
-      .then((session) => {
-        if (cancelled || !session.tokens) return
-        setSessionTokens(prev => {
-          const next = new Map(prev)
-          next.set(currentSessionId, session.tokens!)
-          return next
-        })
-      })
-      .catch((error) => {
-        if (!cancelled) {
-          console.error("Failed to load session info:", error)
-        }
-      })
+    void refreshCurrentSessionInfo(currentSessionId).finally(() => {
+      if (cancelled) return
+    })
 
     return () => {
       cancelled = true
     }
-  }, [currentSessionId, sessionTokens])
+  }, [currentSessionId, refreshCurrentSessionInfo, sessionTokens])
+
+  useEffect(() => {
+    if (!currentSessionId || !isWorking) return
+    void refreshCurrentSessionInfo(currentSessionId)
+  }, [currentSessionId, isWorking, wsMessagesV2.length, refreshCurrentSessionInfo])
+
+  useEffect(() => {
+    if (!showMemorySummaryPanel || !currentSessionId) return
+    void refreshCurrentSessionInfo(currentSessionId)
+  }, [showMemorySummaryPanel, currentSessionId, refreshCurrentSessionInfo])
 
   useEffect(() => {
     if (!initialTaskId) return
@@ -1610,6 +1677,25 @@ export function WorkspaceDetailPage({
           return next
         })
       }
+
+      setSessionMemoryAnalysisById(prev => {
+        const next = new Map(prev)
+        if (session.memoryAnalysis) {
+          next.set(currentSessionId, session.memoryAnalysis)
+        } else {
+          next.delete(currentSessionId)
+        }
+        return next
+      })
+      setSessionCriticalInfoById(prev => {
+        const next = new Map(prev)
+        if (session.criticalInfo?.items?.length) {
+          next.set(currentSessionId, session.criticalInfo)
+        } else {
+          next.delete(currentSessionId)
+        }
+        return next
+      })
     } catch (error) {
       console.error("Failed to refresh session after import:", error)
     }
@@ -1622,13 +1708,17 @@ export function WorkspaceDetailPage({
       ) : (
         <div className="h-full flex flex-col bg-background">
       <ResizablePanelGroup
-        key={showTaskListPanel ? "workspace-layout-both" : "workspace-layout-chat"}
+        key={showTaskListPanel
+          ? (showMemorySummaryPanel ? "workspace-layout-both-memory" : "workspace-layout-both")
+          : (showMemorySummaryPanel ? "workspace-layout-chat-memory" : "workspace-layout-chat")}
         orientation="horizontal"
-        autoSaveId={showTaskListPanel ? "workspace-layout-v3" : "workspace-layout-v3-fullchat"}
+        autoSaveId={showTaskListPanel
+          ? (showMemorySummaryPanel ? "workspace-layout-v5-memory" : "workspace-layout-v5")
+          : (showMemorySummaryPanel ? "workspace-layout-v5-fullchat-memory" : "workspace-layout-v5-fullchat")}
       >
         {showTaskListPanel ? (
           <>
-            <ResizablePanel defaultSize={24} minSize={4} className="border-r min-w-0">
+            <ResizablePanel defaultSize="24%" minSize="12%" className="border-r min-w-0">
           <div className="flex h-full flex-col">
             {/* Header with Search & Group */}
             <div className="border-b px-2 py-2">
@@ -1827,8 +1917,12 @@ export function WorkspaceDetailPage({
           </>
         ) : null}
 
-        {/* RIGHT PANEL: Chat / Logs */}
-        <ResizablePanel defaultSize={showTaskListPanel ? 76 : 100} minSize={20} className="min-w-0">
+        {/* CENTER PANEL: Chat / Logs */}
+        <ResizablePanel
+          id="workspace-chat"
+          minSize="25%"
+          className="min-w-0"
+        >
           {isCreatingTask ? (
             <ChatInterfaceV2
               messages={[]}
@@ -1973,6 +2067,12 @@ export function WorkspaceDetailPage({
               projectPath={activeProjectPath}
               chatChrome="workbench"
               publishWorkbenchTitleToolbar={publishWorkbenchTitleToolbar}
+              memorySummaryPanelOpen={showMemorySummaryPanel}
+              onToggleMemorySummaryPanel={() => setShowMemorySummaryPanel((open) => !open)}
+              workbenchViewMode={workbenchViewMode}
+              onWorkbenchViewModeChange={setWorkbenchViewMode}
+              showAlternateContent={showAlternateMainContent}
+              alternateContent={alternateMainContent}
               isConnected={selectedExecution ? false : isConnected}
               onSendMessage={selectedExecution ? undefined : sendMessageWithQueue}
               onStop={selectedExecution ? undefined : stopTask}
@@ -2030,8 +2130,6 @@ export function WorkspaceDetailPage({
                   }}
                 />
               }
-              alternateContent={workbenchAlternateContent}
-              showAlternateContent={showWorkbenchPanel}
             />
             {TASK_SIDE_WORKBENCH_ENABLED ? (
               <TaskSideWorkbench
@@ -2043,6 +2141,40 @@ export function WorkspaceDetailPage({
           </div>
           )}
         </ResizablePanel>
+
+        {showMemorySummaryPanel ? (
+          <>
+            <ResizableHandle withHandle />
+            <ResizablePanel
+              id="workspace-memory-summary-v2"
+              defaultSize="300px"
+              minSize="260px"
+              maxSize="480px"
+              className="border-l min-h-0"
+            >
+              <div className="flex h-full min-h-0 flex-col">
+                <SessionMemorySummaryPanel
+                  sessionId={currentSessionId}
+                  memoryAnalysis={currentSessionId ? sessionMemoryAnalysisById.get(currentSessionId) ?? null : null}
+                  onMemoryAnalysisUpdated={(analysis) => {
+                    if (!currentSessionId) return
+                    setSessionMemoryAnalysisById((prev) => {
+                      const next = new Map(prev)
+                      next.set(currentSessionId, analysis)
+                      return next
+                    })
+                  }}
+                  className="min-h-0 flex-1"
+                />
+                <SessionAsyncToolPanel
+                  sessionId={currentSessionId}
+                  criticalInfo={currentSessionId ? sessionCriticalInfoById.get(currentSessionId) ?? null : null}
+                  onCancelTask={cancelTaskTool}
+                />
+              </div>
+            </ResizablePanel>
+          </>
+        ) : null}
       </ResizablePanelGroup>
 
       <Dialog

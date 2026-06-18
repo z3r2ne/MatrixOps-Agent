@@ -94,6 +94,10 @@ func (t RunWorkerTaskTool) Schema() map[string]interface{} {
 			"type": "integer",
 			"description": "可选。已有子任务 ID（取上次工具结果 metadata 的 subtaskTaskId）。指定时在同一子任务、同一 worker、同一 session 上续聊：子 worker 保留此前对话与记忆。适用于子任务正常结束但信息不够、或 failed/cancelled 等异常结束后需继续追问/纠错/补查；worker 必须与该子任务一致。不传则创建新子任务。",
 		},
+		"async": map[string]interface{}{
+			"type":        "boolean",
+			"description": "为 true 时后台异步执行子任务，父 agent 不阻塞；完成后以 async_tool_result 补充消息告知结果。",
+		},
 	}, []string{"worker", "content"})
 }
 

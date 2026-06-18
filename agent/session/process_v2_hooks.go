@@ -56,6 +56,9 @@ func (r *AgentRunner) prepareProcessV2Memory(runtimeConfig *RuntimeConfig) error
 	if err := r.ensureRuntimeMemoryState(runtimeConfig); err != nil {
 		return fmt.Errorf("ensure runtime memory: %w", err)
 	}
+	if err := r.ensureCriticalInfoInContext(runtimeConfig); err != nil {
+		return fmt.Errorf("ensure critical info: %w", err)
+	}
 	if runtimeConfig != nil && runtimeConfig.ProcessV2Hooks != nil && runtimeConfig.ProcessV2Hooks.PrepareMemory != nil {
 		return runtimeConfig.ProcessV2Hooks.PrepareMemory(r, runtimeConfig)
 	}

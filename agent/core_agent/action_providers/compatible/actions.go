@@ -70,6 +70,10 @@ func buildCallToolEntrySchema(requireReason bool) map[string]interface{} {
 		}
 		required = append(required, "reason")
 	}
+	properties["async"] = map[string]interface{}{
+		"type":        "boolean",
+		"description": "为 true 时后台异步执行（仅内置工具与 run_worker_task 支持），结果稍后以 async_tool_result 补充消息送达。",
+	}
 	return map[string]interface{}{
 		"type":                 "object",
 		"properties":           properties,

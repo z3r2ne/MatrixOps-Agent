@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } from "react"
 import { useVirtualizer } from "@tanstack/react-virtual"
-import { Send, Bot, AlertCircle, ChevronRight, ChevronDown, ChevronUp, ArrowDown, ArrowLeft, FileCode, Brain, Loader2, Square, Trash2, Copy, Check, FileText, Braces, Archive, Download, Upload, Plus, X, Paperclip, Sparkles, Wrench, RefreshCw, FolderOpen, GitBranch } from "lucide-react"
+import { Send, Bot, AlertCircle, ChevronRight, ChevronDown, ChevronUp, ArrowDown, ArrowLeft, FileCode, Brain, Loader2, Square, Trash2, Copy, Check, FileText, Braces, Archive, Download, Upload, Plus, X, Paperclip, Sparkles, Wrench, RefreshCw, FolderOpen, GitBranch, PanelRightOpen } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -49,6 +49,7 @@ import { MemoryDialog, ProjectFilePromptsPanel } from "./chat/ChatDialogs"
 import { ChatV2MessageBlock } from "./chat/ChatV2MessageBlock"
 import { ChatComposer } from "./chat/ChatComposer"
 import { ChatSessionDialogs } from "./chat/ChatSessionDialogs"
+import { WorkbenchViewTabs, type WorkbenchViewMode } from "./WorkbenchViewTabs"
 
 interface ChatInterfaceV2Props {
   messages?: WithParts[]
@@ -102,6 +103,13 @@ interface ChatInterfaceV2Props {
   chatChrome?: "default" | "workbench"
   /** 多 tab 时仅当前激活页面向标题栏注册工具条，避免互相覆盖 */
   publishWorkbenchTitleToolbar?: boolean
+  /** 记忆总结侧栏是否展开 */
+  memorySummaryPanelOpen?: boolean
+  /** 切换记忆总结侧栏 */
+  onToggleMemorySummaryPanel?: () => void
+  /** 工作台主视图：对话 / 仿真 */
+  workbenchViewMode?: WorkbenchViewMode
+  onWorkbenchViewModeChange?: (mode: WorkbenchViewMode) => void
   /** 任务消息队列 */
   messageQueue?: TaskMessageQueueItem[]
   /** 队列是否在对话结束后自动发送 */
@@ -159,6 +167,10 @@ export function ChatInterfaceV2({
   showAlternateContent = false,
   chatChrome = "default",
   publishWorkbenchTitleToolbar = true,
+  memorySummaryPanelOpen = false,
+  onToggleMemorySummaryPanel,
+  workbenchViewMode = "chat",
+  onWorkbenchViewModeChange,
   messageQueue,
   messageQueueAutoSend = true,
   onMessageQueueAutoSendChange,
@@ -1234,6 +1246,13 @@ export function ChatInterfaceV2({
     return (
       <TooltipProvider delayDuration={300}>
         <div className="flex items-center gap-0.5">
+          {onWorkbenchViewModeChange ? (
+            <WorkbenchViewTabs
+              value={workbenchViewMode}
+              onChange={onWorkbenchViewModeChange}
+              className="mr-1.5"
+            />
+          ) : null}
           {headerExtra}
           <div className="flex items-center gap-0.5 border-r border-border/60 pr-2 mr-1">
             <Tooltip>
@@ -1328,6 +1347,24 @@ export function ChatInterfaceV2({
               <TooltipContent>查看当前 Prompt</TooltipContent>
             </Tooltip>
           ) : null}
+
+          {onToggleMemorySummaryPanel ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className={cn("h-8 w-8", memorySummaryPanelOpen && "bg-accent text-accent-foreground")}
+                  onClick={onToggleMemorySummaryPanel}
+                  disabled={!sessionId}
+                >
+                  <PanelRightOpen className="h-3.5 w-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{memorySummaryPanelOpen ? "收起记忆总结" : "展开记忆总结"}</TooltipContent>
+            </Tooltip>
+          ) : null}
         </div>
       </TooltipProvider>
     )
@@ -1346,6 +1383,10 @@ export function ChatInterfaceV2({
     loadingPrompt,
     sessionId,
     taskId,
+    onToggleMemorySummaryPanel,
+    memorySummaryPanelOpen,
+    onWorkbenchViewModeChange,
+    workbenchViewMode,
   ])
 
   useLayoutEffect(() => {
@@ -1748,7 +1789,7 @@ export function ChatInterfaceV2({
         )}
       </div>
 
-      <div className={cn("min-h-0 min-w-0 flex-1", showAlternateContent ? "flex" : "hidden")}>
+      <div className={cn("min-h-0 min-w-0 flex-1 w-full", showAlternateContent ? "flex flex-col" : "hidden")}>
         {alternateContent}
       </div>
 

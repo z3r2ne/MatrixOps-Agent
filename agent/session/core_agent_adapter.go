@@ -191,7 +191,11 @@ func (a *coreSessionToolAdapter) Description() string {
 }
 
 func (a *coreSessionToolAdapter) Schema() map[string]interface{} {
-	return a.tool.Schema()
+	schema := a.tool.Schema()
+	if tool.IsAsyncEligibleBuiltinTool(a.tool.Name()) {
+		return tool.WithAsyncExecutionParam(schema)
+	}
+	return schema
 }
 
 func (a *coreSessionToolAdapter) Execute(ctx coreagent.ToolContext, input map[string]interface{}) (coreagent.ToolResult, error) {
@@ -238,8 +242,8 @@ func (r *AgentRunner) buildCoreRunner(runtimeConfig *RuntimeConfig, input Proces
 		if runtimeConfig.Worker.Temperature != nil {
 			temperature = *runtimeConfig.Worker.Temperature
 		}
-		topP = runtimeConfig.Worker.TopP
 	}
+	topP = models.EffectiveTopP(runtimeConfig.ModelSettings)
 
 	coreEmitter := &coreEmitterAdapter{inner: r.emitter, onMessage: func(info *coreagent.Message) { copyCoreMessageIntoSession(runtimeConfig.Assistant, info) }}
 	silentToolThreshold, onSilentToolStreak := r.resolveSilentToolWatchdogRunnerOpts(runtimeConfig)
@@ -266,28 +270,7 @@ func (r *AgentRunner) buildCoreRunner(runtimeConfig *RuntimeConfig, input Proces
 			}
 			return nil, nil
 		},
-		ToolExecutor: func(actionCtx *coreagent.ActionContext, toolInstance coreagent.Tool, call coreagent.ToolCall, toolCtx coreagent.ToolContext) (coreagent.ToolResult, error) {
-			if actionCtx != nil {
-				part := actionCtx.GetToolPart(call.ID)
-				if part != nil {
-					if toolCtx.Values == nil {
-						toolCtx.Values = map[string]interface{}{}
-					}
-					toolCtx.Values["tool_event_handler"] = newCoreToolProgressReporter(actionCtx, part)
-				}
-				if call.ID != "" && actionCtx.IsToolPreAuthorized(call.ID) {
-					if toolCtx.Values == nil {
-						toolCtx.Values = map[string]interface{}{}
-					}
-					toolCtx.Values[tool.ToolContextSkipAuthorizeKey] = true
-				}
-			}
-			result, execErr := toolInstance.Execute(toolCtx, call.Arguments)
-			if execErr != nil {
-				return result, execErr
-			}
-			return result, nil
-		},
+		ToolExecutor: r.buildSessionToolExecutor(runtimeConfig),
 		Hooks: coreagent.RunnerHooks{
 			AppendUserText: func(state *coreagent.RunState, text string) error {
 				if runtimeConfig.MemoryState != nil {
@@ -414,10 +397,10 @@ func (r *AgentRunner) buildGenericAgentConfig(runtimeConfig *RuntimeConfig, inpu
 		if runtimeConfig.Worker.Temperature != nil {
 			temperature = *runtimeConfig.Worker.Temperature
 		}
-		topP = runtimeConfig.Worker.TopP
 		workerName = runtimeConfig.Worker.Name
 		extJSON = runtimeConfig.Worker.ExtConfig
 	}
+	topP = models.EffectiveTopP(runtimeConfig.ModelSettings)
 
 	coreEmitter := &coreEmitterAdapter{inner: r.emitter, onMessage: func(info *coreagent.Message) { copyCoreMessageIntoSession(runtimeConfig.Assistant, info) }}
 	silentToolThreshold, onSilentToolStreak := r.resolveSilentToolWatchdogRunnerOpts(runtimeConfig)
@@ -480,22 +463,7 @@ func (r *AgentRunner) buildGenericAgentConfig(runtimeConfig *RuntimeConfig, inpu
 		Runtime: generic.RuntimeSettings{
 			Emitter: coreEmitter,
 			Tools:   r.buildCoreToolRegistry(runtimeConfig),
-			ToolExecutor: func(actionCtx *coreagent.ActionContext, toolInstance coreagent.Tool, call coreagent.ToolCall, toolCtx coreagent.ToolContext) (coreagent.ToolResult, error) {
-				if actionCtx != nil {
-					part := actionCtx.GetToolPart(call.ID)
-					if part != nil {
-						if toolCtx.Values == nil {
-							toolCtx.Values = map[string]interface{}{}
-						}
-						toolCtx.Values["tool_event_handler"] = newCoreToolProgressReporter(actionCtx, part)
-					}
-				}
-				result, execErr := toolInstance.Execute(toolCtx, call.Arguments)
-				if execErr != nil {
-					return result, execErr
-				}
-				return result, nil
-			},
+			ToolExecutor: r.buildSessionToolExecutor(runtimeConfig),
 			ToolContextBuilder: func(state *coreagent.RunState) coreagent.ToolContext {
 				return r.buildSessionCoreToolContext(state)
 			},

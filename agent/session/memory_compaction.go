@@ -313,8 +313,8 @@ func taskWorkerModelRequest(runtimeConfig *RuntimeConfig) (string, float64, floa
 			if runtimeConfig.Worker.Temperature != nil {
 				temperature = *runtimeConfig.Worker.Temperature
 			}
-			topP = runtimeConfig.Worker.TopP
 		}
+		topP = models.EffectiveTopP(runtimeConfig.ModelSettings)
 	}
 	return model, temperature, topP, MemoryCompactionMaxOutputTokens()
 }
@@ -329,8 +329,8 @@ func memoryCompactionModelRequest(runtime *MemoryCompactionRuntime) (string, flo
 			if runtime.Worker.Temperature != nil {
 				temperature = *runtime.Worker.Temperature
 			}
-			topP = runtime.Worker.TopP
 		}
+		topP = models.EffectiveTopP(runtime.ModelSettings)
 		if runtime.ModelSettings != nil && runtime.ModelSettings.OutputLimit > 0 {
 			maxOutputTokens = runtime.ModelSettings.OutputLimit
 		}

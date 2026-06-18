@@ -27,8 +27,10 @@ type Session struct {
 	Archived   int64 `gorm:"index"`
 
 	// JSON 字段
-	Summary       JSONField `gorm:"type:text"`
-	Share         JSONField `gorm:"type:text"`
+	Summary         JSONField `gorm:"type:text"`
+	MemoryAnalysis  JSONField `gorm:"type:text;column:memory_analysis"`
+	CriticalInfo    JSONField `gorm:"type:text;column:critical_info"`
+	Share           JSONField `gorm:"type:text"`
 	Permission    JSONField `gorm:"type:text"`
 	Revert        JSONField `gorm:"type:text"`
 	Tokens        JSONField `gorm:"type:text"`
