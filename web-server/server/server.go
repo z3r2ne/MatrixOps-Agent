@@ -488,6 +488,17 @@ func registerAPI(r *gin.Engine, app *app.App) {
 			llmGroup.POST("/generate-commit-message", llmHandler.GenerateCommitMessage)
 		}
 
+	semregHandler := handlers.NewSemregHandler(app.DB, services.GetGlobalWSHub(app.DB))
+		semregGroup := api.Group("/semreg")
+		{
+			semregGroup.GET("/scenarios", semregHandler.GetScenarios)
+			semregGroup.GET("/status", semregHandler.GetStatus)
+			semregGroup.POST("/runs", semregHandler.StartRun)
+			semregGroup.GET("/runs/:id", semregHandler.GetRun)
+			semregGroup.POST("/runs/:id/cancel", semregHandler.CancelRun)
+			semregGroup.POST("/bootstrap", semregHandler.Bootstrap)
+		}
+
 		// 全局配置 API
 		configHandler := handlers.NewConfigHandler(app.DB)
 		configGroup := api.Group("/config")

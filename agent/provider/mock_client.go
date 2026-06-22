@@ -110,12 +110,11 @@ func (m *MockClient) Chat(request llm.ChatRequest) (llm.ChatResponse, error) {
 
 // StreamChat 实现 llm.StreamChatClient 接口
 func (m *MockClient) StreamChat(request llm.ChatRequest) (<-chan llm.StreamEvent, error) {
+	m.LastRequest = &request
+	m.AllRequests = append(m.AllRequests, &request)
 	if m.StreamCallBack != nil {
 		return m.StreamCallBack(request)
 	}
-	// 记录请求
-	m.LastRequest = &request
-	m.AllRequests = append(m.AllRequests, &request)
 
 	// 获取响应
 	response := m.getResponse()
@@ -247,16 +246,89 @@ func (m *MockClient) GetLastUserMessage() string {
 	if m.LastRequest == nil {
 		return ""
 	}
+	return LastUserMessageContent(m.LastRequest)
+}
 
-	for i := len(m.LastRequest.Messages) - 1; i >= 0; i-- {
-		msg := m.LastRequest.Messages[i]
-		if msg.Role == "user" {
-			if text, ok := msg.Content.(string); ok {
-				return text
-			}
+// FirstUserMessageContent 返回请求中第一条 user 消息文本。
+func FirstUserMessageContent(req *llm.ChatRequest) string {
+	if req == nil {
+		return ""
+	}
+	for _, msg := range req.Messages {
+		if msg != nil && msg.Role == "user" {
+			return messageContentString(msg.Content)
 		}
 	}
 	return ""
+}
+
+// LastUserMessageContent 返回请求中最后一条 user 消息文本。
+func LastUserMessageContent(req *llm.ChatRequest) string {
+	if req == nil {
+		return ""
+	}
+	for i := len(req.Messages) - 1; i >= 0; i-- {
+		msg := req.Messages[i]
+		if msg != nil && msg.Role == "user" {
+			return messageContentString(msg.Content)
+		}
+	}
+	return ""
+}
+
+// FirstSystemMessageContent 返回请求中第一条 system 消息文本。
+func FirstSystemMessageContent(req *llm.ChatRequest) string {
+	if req == nil {
+		return ""
+	}
+	for _, msg := range req.Messages {
+		if msg != nil && msg.Role == "system" {
+			return messageContentString(msg.Content)
+		}
+	}
+	return ""
+}
+
+// FindRequestWithUserInput 在已记录的请求中查找 user 消息等于 inputText 的请求。
+func (m *MockClient) FindRequestWithUserInput(inputText string) *llm.ChatRequest {
+	inputText = strings.TrimSpace(inputText)
+	for _, req := range m.AllRequests {
+		if req == nil {
+			continue
+		}
+		if strings.TrimSpace(FirstUserMessageContent(req)) == inputText {
+			return req
+		}
+	}
+	return nil
+}
+
+func messageContentString(content interface{}) string {
+	switch v := content.(type) {
+	case string:
+		return v
+	case nil:
+		return ""
+	default:
+		return fmt.Sprint(v)
+	}
+}
+
+// MockAnswerActionStream 返回符合 StreamV2 解析器的 answer action 流。
+func MockAnswerActionStream(answer string) <-chan llm.StreamEvent {
+	stream := make(chan llm.StreamEvent, 2)
+	go func() {
+		defer close(stream)
+		stream <- llm.StreamEvent{
+			Type: string(llm.GeneratorMessageTypeTextDelta),
+			Text: fmt.Sprintf(`{"@action":"answer","data":%q}`, answer),
+		}
+		stream <- llm.StreamEvent{
+			Type:  string(llm.GeneratorMessageTypeFinish),
+			Usage: &llm.Usage{InputTokens: 1, OutputTokens: 1},
+		}
+	}()
+	return stream
 }
 
 // GetToolDefinitions 获取请求中的工具定义

@@ -577,6 +577,7 @@ export interface AsyncToolTaskMeta {
   status: string;
   startedAt: number;
   taskId?: number;
+  bashJobId?: string;
 }
 
 export interface SessionPromptResponse {
@@ -967,6 +968,89 @@ export interface LLMDebugRequest {
 
 export interface LLMDebugResponse {
   text: string;
+}
+
+export interface SemregScenarioInfo {
+  id: string;
+  name: string;
+  description: string;
+  tier: string;
+  kind: string;
+  requiresLlm: boolean;
+  hasBaseline: boolean;
+}
+
+export interface SemregMetricComparison {
+  name: string;
+  actual: number;
+  baseline: number;
+  maxAllowed?: number;
+  passed: boolean;
+  detail?: string;
+}
+
+export interface SemregScenarioResult {
+  scenarioId: string;
+  name: string;
+  tier: string;
+  kind: string;
+  status: string;
+  durationMs: number;
+  activeTaskId?: number;
+  taskIds?: number[];
+  sessionId?: string;
+  errors?: string[];
+  details?: Record<string, unknown>;
+  metrics?: SemregMetricComparison[];
+  toolCalls?: Array<{
+    tool: string;
+    status?: string;
+    input?: Record<string, unknown>;
+    outputChars?: number;
+  }>;
+}
+
+export interface SemregRunSummary {
+  total: number;
+  passed: number;
+  failed: number;
+  skipped: number;
+  error: number;
+  durationMs: number;
+}
+
+export interface SemregRunConfig {
+  tiers?: string[];
+  scenarioIds?: string[];
+  workDir?: string;
+  workspaceId?: number;
+  projectId?: string;
+}
+
+export interface SemregRunReport {
+  id: string;
+  status: string;
+  startedAt: string;
+  completedAt?: string;
+  summary: SemregRunSummary;
+  results: SemregScenarioResult[];
+  config: SemregRunConfig;
+}
+
+export interface SemregEnvironmentStatus {
+  scenariosDir: string;
+  baselinesDir: string;
+  l1l2Ready: boolean;
+  workDir?: string;
+  workspaceId?: number;
+  projectId?: string;
+  message?: string;
+}
+
+export interface SemregBootstrapResult {
+  projectId: string;
+  workDir: string;
+  ready: boolean;
 }
 
 // 命令执行日志
@@ -2430,6 +2514,43 @@ class ApiClient {
     return this.request<LLMDebugResponse>('/llm/debug', {
       method: 'POST',
       body: JSON.stringify(payload),
+    });
+  }
+
+  async getSemregScenarios(): Promise<{ scenarios: SemregScenarioInfo[] }> {
+    return this.request<{ scenarios: SemregScenarioInfo[] }>('/semreg/scenarios');
+  }
+
+  async getSemregStatus(query?: { workDir?: string; workspaceId?: number; projectId?: string }): Promise<SemregEnvironmentStatus> {
+    const params = new URLSearchParams();
+    if (query?.workDir) params.set('workDir', query.workDir);
+    if (query?.workspaceId) params.set('workspaceId', String(query.workspaceId));
+    if (query?.projectId) params.set('projectId', query.projectId);
+    const qs = params.toString();
+    return this.request<SemregEnvironmentStatus>(`/semreg/status${qs ? `?${qs}` : ''}`);
+  }
+
+  async bootstrapSemregWorkspace(workspaceId: number): Promise<SemregBootstrapResult> {
+    return this.request<SemregBootstrapResult>('/semreg/bootstrap', {
+      method: 'POST',
+      body: JSON.stringify({ workspaceId }),
+    });
+  }
+
+  async startSemregRun(config: SemregRunConfig): Promise<SemregRunReport> {
+    return this.request<SemregRunReport>('/semreg/runs', {
+      method: 'POST',
+      body: JSON.stringify(config),
+    });
+  }
+
+  async getSemregRun(id: string): Promise<SemregRunReport> {
+    return this.request<SemregRunReport>(`/semreg/runs/${encodeURIComponent(id)}`);
+  }
+
+  async cancelSemregRun(id: string): Promise<{ ok: boolean }> {
+    return this.request<{ ok: boolean }>(`/semreg/runs/${encodeURIComponent(id)}/cancel`, {
+      method: 'POST',
     });
   }
 

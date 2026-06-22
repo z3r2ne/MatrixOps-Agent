@@ -513,12 +513,12 @@ export function WorkspacesPage() {
           }
         }}
       >
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden">
-          <DialogHeader>
+        <DialogContent className="flex max-h-[85vh] max-w-2xl flex-col overflow-hidden">
+          <DialogHeader className="shrink-0">
             <DialogTitle>编辑工作区</DialogTitle>
             <DialogDescription>修改工作区设置和管理项目</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 overflow-y-auto py-4 pr-2">
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto py-4 pr-2">
             <div className="space-y-2">
               <Label>工作区名称</Label>
               <Input
@@ -670,7 +670,7 @@ export function WorkspacesPage() {
               )}
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="shrink-0 border-t pt-4">
             <Button variant="outline" onClick={() => setEditWorkspace(null)}>取消</Button>
             <Button onClick={handleSaveEdit}>保存</Button>
           </DialogFooter>

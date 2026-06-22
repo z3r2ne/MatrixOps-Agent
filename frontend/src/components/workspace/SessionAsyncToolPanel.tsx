@@ -97,6 +97,16 @@ export function SessionAsyncToolPanel({
                       <div className="mt-1 break-all text-[11px] leading-4 text-muted-foreground">
                         {summarizeParams(task.params)}
                       </div>
+                      {task.bashJobId ? (
+                        <div className="mt-1 break-all text-[11px] leading-4 text-muted-foreground">
+                          bash_job_id: {task.bashJobId}
+                        </div>
+                      ) : null}
+                      {task.taskId ? (
+                        <div className="mt-1 break-all text-[11px] leading-4 text-muted-foreground">
+                          task_id: {task.taskId}
+                        </div>
+                      ) : null}
                       <div className="mt-1.5 flex items-center gap-1 text-[11px] text-muted-foreground">
                         <Timer className="h-3 w-3" />
                         已运行 {elapsed}

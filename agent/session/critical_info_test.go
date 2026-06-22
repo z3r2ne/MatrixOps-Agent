@@ -10,21 +10,38 @@ import (
 )
 
 func TestCriticalInfoMarkerAndMessage(t *testing.T) {
-	message := formatAsyncToolStartMessage("bash", map[string]interface{}{"command": "echo hi"}, "call-1", 0)
+	message := formatAsyncToolStartMessage("bash", map[string]interface{}{"command": "echo hi"}, "call-1", 0, "bash-abc")
 	if !strings.Contains(message, "<system>") {
 		t.Fatalf("expected system wrapper, got %q", message)
 	}
 }
 
 func TestAsyncToolStartBodyIncludesSubtaskTaskID(t *testing.T) {
-	body := formatAsyncToolStartBody("run_worker_task", map[string]interface{}{"worker": "explore"}, "call-2", 123)
+	body := formatAsyncToolStartBody("run_worker_task", map[string]interface{}{"worker": "explore"}, "call-2", 123, "")
 	if !strings.Contains(body, "task_id: 123") {
 		t.Fatalf("expected body to include task_id, got %q", body)
 	}
 }
 
+func TestAsyncToolStartBodyIncludesBashJobID(t *testing.T) {
+	body := formatAsyncToolStartBody("bash", map[string]interface{}{"command": "sleep 1"}, "call-bash", 0, "bash-xyz")
+	if !strings.Contains(body, "bash_job_id: bash-xyz") {
+		t.Fatalf("expected body to include bash_job_id, got %q", body)
+	}
+}
+
+func TestFormatAsyncBashPlaceholder(t *testing.T) {
+	placeholder := formatAsyncBashPlaceholder("bash", "call-1", "bash-abc")
+	if placeholder == "" || !strings.Contains(placeholder, "bash_job_id=bash-abc") {
+		t.Fatalf("unexpected placeholder: %q", placeholder)
+	}
+	if formatAsyncBashPlaceholder("read", "call-1", "") != "" {
+		t.Fatal("expected empty placeholder for non-bash tool")
+	}
+}
+
 func TestCriticalInfoPresentInTranscript(t *testing.T) {
-	item := newAsyncToolCriticalInfoItem("call-2", "read", map[string]interface{}{"path": "a.go"}, 0, "started")
+	item := newAsyncToolCriticalInfoItem("call-2", "read", map[string]interface{}{"path": "a.go"}, 0, "", "started")
 	transcript := "earlier context\nread\n{\"path\":\"a.go\"}\nstarted\nlater"
 	if !criticalInfoPresentInTranscript(transcript, item) {
 		t.Fatal("expected marker/message to be detected in transcript")
@@ -40,7 +57,7 @@ func TestEnsureCriticalInfoInContext_ReinjectsMissingMarker(t *testing.T) {
 			ID: "session-critical-info",
 			CriticalInfo: &types.CriticalInfo{
 				Items: []types.CriticalInfoItem{
-					newAsyncToolCriticalInfoItem("call-3", "bash", map[string]interface{}{"command": "sleep 1"}, 0, "started"),
+					newAsyncToolCriticalInfoItem("call-3", "bash", map[string]interface{}{"command": "sleep 1"}, 0, "bash-job-1", "started"),
 				},
 			},
 		},
@@ -84,7 +101,7 @@ func TestPersistAndRemoveCriticalInfoItem(t *testing.T) {
 		db:      db,
 		session: sessionInfo,
 	}
-	item := newAsyncToolCriticalInfoItem("call-4", "glob", map[string]interface{}{"pattern": "*.go"}, 0, "started")
+	item := newAsyncToolCriticalInfoItem("call-4", "glob", map[string]interface{}{"pattern": "*.go"}, 0, "", "started")
 	if err := runner.upsertCriticalInfoItem(item); err != nil {
 		t.Fatalf("upsertCriticalInfoItem: %v", err)
 	}

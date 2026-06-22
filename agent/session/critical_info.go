@@ -31,25 +31,31 @@ func formatCriticalInfoID(callID string) string {
 	return "async_tool:" + callID
 }
 
-func formatAsyncToolStartBody(toolName string, params map[string]interface{}, callID string, subtaskTaskID uint) string {
+func formatAsyncToolStartBody(toolName string, params map[string]interface{}, callID string, subtaskTaskID uint, bashJobID string) string {
 	toolName = strings.TrimSpace(toolName)
 	callID = strings.TrimSpace(callID)
+	bashJobID = strings.TrimSpace(bashJobID)
 	paramsText := tool.ParamsJSONString(params)
 	subtaskLine := ""
 	if subtaskTaskID > 0 {
 		subtaskLine = fmt.Sprintf("\ntask_id: %d", subtaskTaskID)
 	}
+	bashJobLine := ""
+	if bashJobID != "" {
+		bashJobLine = "\nbash_job_id: " + bashJobID
+	}
 	return strings.TrimSpace(fmt.Sprintf(
-		"异步工具任务已启动：%s\n参数：%s\ncall_id: %s%s",
+		"异步工具任务已启动：%s\n参数：%s\ncall_id: %s%s%s",
 		toolName,
 		paramsText,
 		callID,
 		subtaskLine,
+		bashJobLine,
 	))
 }
 
-func formatAsyncToolStartMessage(toolName string, params map[string]interface{}, callID string, subtaskTaskID uint) string {
-	return coreagent.FormatSystemSupplementMessage(formatAsyncToolStartBody(toolName, params, callID, subtaskTaskID))
+func formatAsyncToolStartMessage(toolName string, params map[string]interface{}, callID string, subtaskTaskID uint, bashJobID string) string {
+	return coreagent.FormatSystemSupplementMessage(formatAsyncToolStartBody(toolName, params, callID, subtaskTaskID, bashJobID))
 }
 
 func criticalInfoPresentInTranscript(transcript string, item types.CriticalInfoItem) bool {
@@ -221,7 +227,7 @@ func (r *AgentRunner) removeCriticalInfoItem(id string) error {
 	return r.persistSessionCriticalInfo(&types.CriticalInfo{Items: next})
 }
 
-func newAsyncToolCriticalInfoItem(callID, toolName string, params map[string]interface{}, subtaskTaskID uint, launchOutput string) types.CriticalInfoItem {
+func newAsyncToolCriticalInfoItem(callID, toolName string, params map[string]interface{}, subtaskTaskID uint, bashJobID string, launchOutput string) types.CriticalInfoItem {
 	now := time.Now().UnixMilli()
 	id := formatCriticalInfoID(callID)
 	paramsCopy := map[string]interface{}{}
@@ -231,19 +237,19 @@ func newAsyncToolCriticalInfoItem(callID, toolName string, params map[string]int
 	paramsJSON := tool.ParamsJSONString(paramsCopy)
 	matchSources := []types.CriticalInfoMatchSource{
 		{
-			Kind:      "tool_call",
-			ToolName:  strings.TrimSpace(toolName),
+			Kind:       "tool_call",
+			ToolName:   strings.TrimSpace(toolName),
 			ParamsJSON: paramsJSON,
-			Output:    strings.TrimSpace(launchOutput),
+			Output:     strings.TrimSpace(launchOutput),
 		},
 	}
 	return types.CriticalInfoItem{
-		ID:        id,
-		Type:      criticalInfoTypeAsyncTool,
-		Marker:    "",
-		Message:   formatAsyncToolStartMessage(toolName, paramsCopy, callID, subtaskTaskID),
+		ID:           id,
+		Type:         criticalInfoTypeAsyncTool,
+		Marker:       "",
+		Message:      formatAsyncToolStartMessage(toolName, paramsCopy, callID, subtaskTaskID, bashJobID),
 		MatchSources: matchSources,
-		CreatedAt: now,
+		CreatedAt:    now,
 		AsyncTask: &types.AsyncToolTaskMeta{
 			CallID:    callID,
 			ToolName:  toolName,
@@ -251,6 +257,7 @@ func newAsyncToolCriticalInfoItem(callID, toolName string, params map[string]int
 			Status:    "running",
 			StartedAt: now,
 			TaskID:    subtaskTaskID,
+			BashJobID: strings.TrimSpace(bashJobID),
 		},
 	}
 }

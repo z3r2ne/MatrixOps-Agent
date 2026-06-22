@@ -15,6 +15,42 @@ import (
 	taskrunner "web-server/services/task_runner"
 )
 
+type executeScenarioConfig struct {
+	onTaskStarted func(taskID uint, phase string)
+	workDir       string
+	projectID     string
+}
+
+type ExecuteScenarioOption func(*executeScenarioConfig)
+
+func WithOnTaskStarted(fn func(taskID uint, phase string)) ExecuteScenarioOption {
+	return func(cfg *executeScenarioConfig) {
+		cfg.onTaskStarted = fn
+	}
+}
+
+func WithWorkDir(dir string) ExecuteScenarioOption {
+	return func(cfg *executeScenarioConfig) {
+		cfg.workDir = strings.TrimSpace(dir)
+	}
+}
+
+func WithProjectID(id string) ExecuteScenarioOption {
+	return func(cfg *executeScenarioConfig) {
+		cfg.projectID = strings.TrimSpace(id)
+	}
+}
+
+func applyExecuteScenarioOptions(opts []ExecuteScenarioOption) executeScenarioConfig {
+	cfg := executeScenarioConfig{}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(&cfg)
+		}
+	}
+	return cfg
+}
+
 // TestScenario 定义一个可执行的测试场景
 type TestScenario struct {
 	ID               string
@@ -100,7 +136,9 @@ func ExecuteScenario(
 	llmClient llm.ChatClient,
 	workspaceID uint,
 	scenario TestScenario,
+	opts ...ExecuteScenarioOption,
 ) (*TestResult, error) {
+	cfg := applyExecuteScenarioOptions(opts)
 	result := &TestResult{
 		Status:    "running",
 		StartedAt: time.Now(),
@@ -115,15 +153,25 @@ func ExecuteScenario(
 		return result, nil
 	}
 
-	mainTask, err := taskrunner.CreateAndRunTask(
+	workDir := cfg.workDir
+	if workDir == "" {
+		workDir = strings.TrimSpace(workspace.Path)
+	}
+
+	mainTaskOpts := []taskrunner.TaskRuntimeConfigOption{
 		taskrunner.WithDB(db),
 		taskrunner.WithWSHub(wsHub),
 		taskrunner.WithWorkspaceID(fmt.Sprintf("%d", workspaceID)),
 		taskrunner.WithContent(scenario.TaskInput),
 		taskrunner.WithTaskName(fmt.Sprintf("[测试] %s", scenario.Name)),
-		taskrunner.WithWorkDir(workspace.Path),
+		taskrunner.WithWorkDir(workDir),
 		taskrunner.WithLLMClient(llmClient),
-	)
+	}
+	if cfg.projectID != "" {
+		mainTaskOpts = append(mainTaskOpts, taskrunner.WithProjectID(cfg.projectID))
+	}
+
+	mainTask, err := taskrunner.CreateAndRunTask(mainTaskOpts...)
 	if err != nil {
 		result.Status = "error"
 		result.Error = "创建测试任务失败: " + err.Error()
@@ -131,9 +179,16 @@ func ExecuteScenario(
 		return result, nil
 	}
 	result.TaskID = mainTask.ID
+	if cfg.onTaskStarted != nil {
+		cfg.onTaskStarted(mainTask.ID, "main")
+	}
 
 	// 2. 启动并等待主 task
-	if err := taskrunner.RunTask(mainTask.ID); err != nil {
+	runOpts := []taskrunner.TaskRuntimeConfigOption{
+		taskrunner.WithDB(db),
+		taskrunner.WithWSHub(wsHub),
+	}
+	if err := taskrunner.RunTask(mainTask.ID, runOpts...); err != nil {
 		result.Status = "error"
 		result.Error = "启动测试任务失败: " + err.Error()
 		result.CompletedAt = time.Now()
@@ -170,15 +225,20 @@ func ExecuteScenario(
 	verifyInput := scenario.BuildVerifyInput(mainTask, memoryEntries)
 	result.MainTaskOutput = summarizeMemoryEntries(memoryEntries)
 
-	verifyTask, err := taskrunner.CreateAndRunTask(
+	verifyTaskOpts := []taskrunner.TaskRuntimeConfigOption{
 		taskrunner.WithDB(db),
 		taskrunner.WithWSHub(wsHub),
 		taskrunner.WithWorkspaceID(fmt.Sprintf("%d", workspaceID)),
 		taskrunner.WithContent(verifyInput),
 		taskrunner.WithTaskName(fmt.Sprintf("[验证] %s", scenario.Name)),
-		taskrunner.WithWorkDir(workspace.Path),
+		taskrunner.WithWorkDir(workDir),
 		taskrunner.WithLLMClient(llmClient),
-	)
+	}
+	if cfg.projectID != "" {
+		verifyTaskOpts = append(verifyTaskOpts, taskrunner.WithProjectID(cfg.projectID))
+	}
+
+	verifyTask, err := taskrunner.CreateAndRunTask(verifyTaskOpts...)
 	if err != nil {
 		result.Status = "error"
 		result.Error = "创建验证任务失败: " + err.Error()
@@ -186,9 +246,12 @@ func ExecuteScenario(
 		return result, nil
 	}
 	result.VerifyTaskID = verifyTask.ID
+	if cfg.onTaskStarted != nil {
+		cfg.onTaskStarted(verifyTask.ID, "verify")
+	}
 
 	// 5. 启动并等待验证 task
-	if err := taskrunner.RunTask(verifyTask.ID); err != nil {
+	if err := taskrunner.RunTask(verifyTask.ID, runOpts...); err != nil {
 		result.Status = "error"
 		result.Error = "启动验证任务失败: " + err.Error()
 		result.CompletedAt = time.Now()

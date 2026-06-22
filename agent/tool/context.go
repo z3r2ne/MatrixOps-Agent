@@ -11,6 +11,12 @@ var ErrTaskExecutionCancelledByUser = errors.New("task execution cancelled by us
 // ToolContextSkipAuthorizeKey 为 true 时 session 层跳过 authorizeToolCall（已在 core agent 执行前完成授权）。
 const ToolContextSkipAuthorizeKey = "tool_skip_authorize"
 
+// ToolContextAsyncBashKey 为 true 时 bash 工具以异步会话模式运行（后台 PTY，阻塞至会话结束）。
+const ToolContextAsyncBashKey = "async_bash_execution"
+
+// ToolContextBashJobReadyKey 为 chan string，异步 bash 启动后写入 bash_job_id。
+const ToolContextBashJobReadyKey = "bash_job_ready"
+
 type ExecutionController interface {
 	RegisterCancelableToolCall(callID string, toolName string, cancel context.CancelCauseFunc)
 	FinishCancelableToolCall(callID string)

@@ -1,0 +1,3 @@
+MatrixOps semantic regression fixture project.
+
+This directory is copied to a temp folder before each L1/L2 test run.

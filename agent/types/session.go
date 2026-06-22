@@ -77,6 +77,7 @@ type AsyncToolTaskMeta struct {
 	Status    string                 `json:"status"`
 	StartedAt int64                  `json:"startedAt"`
 	TaskID    uint                   `json:"taskId,omitempty"`
+	BashJobID string                 `json:"bashJobId,omitempty"`
 }
 
 type ShareInfo struct {

@@ -27,7 +27,7 @@ func (BashTool) VerbosName() string {
 }
 
 func (BashTool) Description() string {
-	return "执行命令行指令"
+	return "执行命令行指令。设置 async=true 时在后台启动可交互 bash 会话（返回 bash_job_id），可通过 read_bash_output、send_bash_command、stop_bash 与之交互。"
 }
 
 func (BashTool) Schema() map[string]interface{} {
@@ -51,6 +51,9 @@ func (BashTool) Execute(ctx Context, input map[string]interface{}) (Result, erro
 	workdir := ctx.Directory
 	if dir, ok := input["workdir"].(string); ok && dir != "" {
 		workdir = resolvePath(ctx.Directory, dir)
+	}
+	if isAsyncBashExecution(ctx) {
+		return runAsyncBashSession(ctx, command, workdir)
 	}
 	return runBashCommand(ctx, command, workdir)
 }
@@ -315,4 +318,13 @@ func (b *terminalOutputBuffer) Value() string {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	return b.content
+}
+
+func (b *terminalOutputBuffer) Tail(maxBytes int) string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if maxBytes <= 0 || len(b.content) <= maxBytes {
+		return b.content
+	}
+	return b.content[len(b.content)-maxBytes:]
 }

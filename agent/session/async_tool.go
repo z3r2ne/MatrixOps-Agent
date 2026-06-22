@@ -80,14 +80,18 @@ func formatAsyncToolResultMessage(toolName string, params map[string]interface{}
 	return fmt.Sprintf("<async_tool_result>\n%s\n</async_tool_result>", body)
 }
 
-func formatAsyncToolStartUserVisibleBody(callID string, subtaskTaskID uint) string {
+func formatAsyncToolStartUserVisibleBody(callID string, subtaskTaskID uint, bashJobID string) string {
 	callID = strings.TrimSpace(callID)
+	bashJobID = strings.TrimSpace(bashJobID)
 	lines := []string{"异步任务已启动"}
 	if callID != "" {
 		lines = append(lines, "call_id: "+callID)
 	}
 	if subtaskTaskID > 0 {
 		lines = append(lines, fmt.Sprintf("task_id: %d", subtaskTaskID))
+	}
+	if bashJobID != "" {
+		lines = append(lines, "bash_job_id: "+bashJobID)
 	}
 	return strings.Join(lines, "\n")
 }
@@ -138,9 +142,12 @@ func (r *AgentRunner) startAsyncToolCall(
 
 	// Special-case run_worker_task: wait for the first progress event to learn subtask task_id,
 	// then persist critical info and emit the async start system message containing that id.
+	// Special-case bash: wait for bash_job_id from the background session before persisting critical info.
 	var (
 		subtaskTaskIDCh chan uint
 		subtaskTaskID   uint
+		bashJobIDCh     chan string
+		bashJobID       string
 	)
 	if strings.TrimSpace(toolName) == "run_worker_task" {
 		subtaskTaskIDCh = make(chan uint, 1)
@@ -157,6 +164,11 @@ func (r *AgentRunner) startAsyncToolCall(
 				}
 			}
 		}
+	}
+	if strings.TrimSpace(toolName) == "bash" {
+		bashJobIDCh = make(chan string, 1)
+		asyncToolCtx.Values[tool.ToolContextBashJobReadyKey] = bashJobIDCh
+		asyncToolCtx.Values[tool.ToolContextAsyncBashKey] = true
 	}
 
 	go func() {
@@ -195,14 +207,23 @@ func (r *AgentRunner) startAsyncToolCall(
 		case <-time.After(3 * time.Second):
 		}
 	}
+	if bashJobIDCh != nil {
+		select {
+		case bashJobID = <-bashJobIDCh:
+		case <-time.After(3 * time.Second):
+		}
+	}
 
-	placeholder := fmt.Sprintf(
-		"工具 %q 已异步启动（call_id=%s）。完成后将以 async_tool_result 补充消息告知结果；进行中的任务可在侧栏查看或手动结束。",
-		toolName,
-		callID,
-	)
+	placeholder := formatAsyncBashPlaceholder(toolName, callID, bashJobID)
+	if bashJobID == "" {
+		placeholder = fmt.Sprintf(
+			"工具 %q 已异步启动（call_id=%s）。完成后将以 async_tool_result 补充消息告知结果；进行中的任务可在侧栏查看或手动结束。",
+			toolName,
+			callID,
+		)
+	}
 
-	item := newAsyncToolCriticalInfoItem(callID, toolName, args, subtaskTaskID, placeholder)
+	item := newAsyncToolCriticalInfoItem(callID, toolName, args, subtaskTaskID, bashJobID, placeholder)
 	if err := r.upsertCriticalInfoItem(item); err != nil {
 		return coreagent.ToolResult{IsError: true, Name: toolName, Content: err.Error()}, err
 	}
@@ -211,7 +232,7 @@ func (r *AgentRunner) startAsyncToolCall(
 		_ = r.deliverSupplementUserMessage(runtimeConfig, models.TaskMessageQueueItem{
 			ID:         fmt.Sprintf("async-tool-start-%s", callID),
 			Type:       models.TaskMessageQueueTypeSystem,
-			Content:    formatAsyncToolStartUserVisibleBody(callID, subtaskTaskID),
+			Content:    formatAsyncToolStartUserVisibleBody(callID, subtaskTaskID, bashJobID),
 			Source:     "async_tool_start",
 			Supplement: true,
 			CreatedAt:  time.Now().UnixMilli(),
@@ -226,11 +247,27 @@ func (r *AgentRunner) startAsyncToolCall(
 		Name:    toolName,
 		Content: placeholder,
 		Metadata: map[string]interface{}{
-			"async":  true,
-			"callId": callID,
-			"status": "running",
+			"async":     true,
+			"callId":    callID,
+			"status":    "running",
+			"bashJobId": bashJobID,
 		},
 	}, nil
+}
+
+func formatAsyncBashPlaceholder(toolName, callID, bashJobID string) string {
+	toolName = strings.TrimSpace(toolName)
+	callID = strings.TrimSpace(callID)
+	bashJobID = strings.TrimSpace(bashJobID)
+	if toolName != "bash" || bashJobID == "" {
+		return ""
+	}
+	return fmt.Sprintf(
+		"工具 %q 已异步启动（call_id=%s，bash_job_id=%s）。可通过 read_bash_output、send_bash_command、stop_bash 与之交互；完成后将以 async_tool_result 补充消息告知结果。",
+		toolName,
+		callID,
+		bashJobID,
+	)
 }
 
 func (r *AgentRunner) finishAsyncToolCall(
