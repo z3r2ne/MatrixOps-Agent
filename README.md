@@ -26,6 +26,68 @@ Under the hood, multiple **workers** (explore, plan, verification, clawbot, fron
 - **Desktop + local-first** — Electron app bundles the backend; data stays on your machine (`~/.matrixops` by default).
 - **Extensible tooling** — MCP servers, skills, custom workers, and LLM provider configuration.
 
+## Screenshots
+
+### New task composer
+
+Pick a project, worker, branch, and optional Git worktree before starting a task. RAG can be toggled per run.
+
+![New task composer](./docs/screenshots/new-task-composer.png)
+
+### Multi-agent chat workspace
+
+Run tasks in a chat-style workspace. Workers such as `explore` can be delegated automatically while you follow tool calls and streamed answers in real time.
+
+![Multi-agent chat workspace](./docs/screenshots/multi-agent-chat.png)
+
+### Agent simulation office
+
+Switch to the simulation view to see subtasks as agents in a virtual office — useful for monitoring parallel worker progress at a glance.
+
+![Agent simulation office](./docs/screenshots/agent-simulation-office.png)
+
+### Snapshot diff review
+
+Review every file change on a timeline, compare unified or split diffs, and undo or restore snapshots before committing.
+
+![Snapshot diff review](./docs/screenshots/snapshot-diff-review.png)
+
+### Session memory management
+
+Inspect, compress, or delete conversation memory per session. See token size, level, and tool-call entries in one table.
+
+![Session memory management](./docs/screenshots/session-memory-management.png)
+
+### Usage statistics
+
+Track LLM calls, first-token latency, cache hits, token throughput, and tool usage with trend charts and provider rankings.
+
+![Usage statistics](./docs/screenshots/usage-statistics.png)
+
+### iLink WeChat bot
+
+Bind a WeChat bot account, scan to sign in, and route incoming messages to a workspace session for hands-free assistant access.
+
+![iLink WeChat bot](./docs/screenshots/ilink-wechat-bot.png)
+
+### Worker configuration
+
+Configure specialized workers (explore, plan, leader, verification, frontend engineer, …) with per-role models and prompts.
+
+![Worker configuration](./docs/screenshots/worker-configuration.png)
+
+### Skills marketplace
+
+Browse, install, and manage Skills from multiple sources — document tools, research workflows, frontend design helpers, and more.
+
+![Skills marketplace](./docs/screenshots/skills-marketplace.png)
+
+### Prompt management
+
+Edit global, occupation, and project-level system prompts. Markdown is supported and layered into every worker’s context.
+
+![Prompt management](./docs/screenshots/prompt-management.png)
+
 ## Architecture (high level)
 
 ```

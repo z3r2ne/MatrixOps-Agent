@@ -26,6 +26,68 @@
 - **桌面 + 本地优先** — Electron 内嵌后端，数据默认保存在本机（`~/.matrixops`）。
 - **可扩展工具链** — MCP 服务、Skills、自定义 Worker、LLM 提供商配置。
 
+## 功能截图
+
+### 新建任务
+
+选择项目、Worker、分支，并可按需开启 Git worktree 或 RAG，再发起任务。
+
+![新建任务](./docs/screenshots/new-task-composer.png)
+
+### 多 Agent 对话工作区
+
+在对话式工作区中执行任务，`explore` 等 Worker 可被自动委派，工具调用与流式回复实时可见。
+
+![多 Agent 对话工作区](./docs/screenshots/multi-agent-chat.png)
+
+### Agent 仿真办公室
+
+切换到仿真视图，以虚拟办公室形式展示子任务与 Worker 状态，便于一眼掌握并行进度。
+
+![Agent 仿真办公室](./docs/screenshots/agent-simulation-office.png)
+
+### 快照与 Diff 审查
+
+按时间线查看每次变更，支持统一/分栏 Diff，可在提交前撤销修改或恢复快照。
+
+![快照与 Diff 审查](./docs/screenshots/snapshot-diff-review.png)
+
+### 会话记忆管理
+
+按会话查看、压缩或删除记忆条目，表格中展示大小、级别、工具调用等明细。
+
+![会话记忆管理](./docs/screenshots/session-memory-management.png)
+
+### 用量统计
+
+监控 LLM 调用次数、首字延时、缓存命中、Token 速度与工具调用，并提供趋势图与排行榜。
+
+![用量统计](./docs/screenshots/usage-statistics.png)
+
+### iLink 微信机器人
+
+绑定微信 Bot、扫码登录，将收到的消息自动路由到工作区会话，实现免打开应用的助手接入。
+
+![iLink 微信机器人](./docs/screenshots/ilink-wechat-bot.png)
+
+### Worker 配置
+
+为 explore、plan、leader、verification、frontend engineer 等角色分别配置模型与提示词。
+
+![Worker 配置](./docs/screenshots/worker-configuration.png)
+
+### Skills 技能市场
+
+从多个源浏览、安装与管理 Skills，涵盖文档处理、调研工作流、前端设计等扩展能力。
+
+![Skills 技能市场](./docs/screenshots/skills-marketplace.png)
+
+### 提示词管理
+
+编辑全局、职业与项目三级提示词，支持 Markdown，并分层注入各 Worker 的上下文。
+
+![提示词管理](./docs/screenshots/prompt-management.png)
+
 ## 架构概览
 
 ```
