@@ -2,20 +2,109 @@
 
 [English](./README.md) | **简体中文**
 
-融合多个 Agent、具备**长期记忆**的 AI 辅助工具。在使用方式上，将 **OpenClaw 式持久协助** 与 **Coding Agent 式项目编码** 结合在同一套工作流里。
+![MatrixOps Agent — 可组装的 AI Agent 框架](./docs/matrixops-hero.png)
 
-你可以在同一个系统中长期积累上下文、委派给不同 Worker，也可以在需要时直接进入某个代码仓库编写或修改项目。
+> **MatrixOps Agent** 是通用 AI Agent 框架：**`core_agent`** 为引擎，记忆、队列、Worker 与工具以模块接入；本仓库桌面应用为参考实现。
+
+MatrixOps Agent 是一个**高自由度、通用型 AI Agent 框架**。记忆层已独立抽离，可按场景选择 SQLite 或 JSON 存储，并支持自定义压缩与召回策略；`core_agent` 只承担「大脑 + 心脏」——解析模型输出、驱动工具循环；其余能力以接口接入，为不同场景拼装「躯干」即可落地。
+
+MatrixOps 桌面端是当前框架的一套完整参考实现（多 Worker 编排、Coding Agent、长期记忆、语义回归等），展示如何把通用引擎接到具体产品形态上。
 
 ## 产品定位
 
-多数工具只能二选一：要么偏「有记忆的助手」，要么偏「绑定仓库的编程 Agent」。MatrixOps Agent 希望把这两种用法放在同一条链路里。
+### 框架优先，场景可插拔
 
-| 模式 | 体验 | 典型场景 |
-|------|------|----------|
-| **持久型助手** | 长会话、记忆库、提醒、多步工作流 | 调研、规划、重复性任务、需要跨重启保留的知识 |
-| **项目型编码 Agent** | 绑定工作区，使用读文件/编辑/终端/Git 等工具 | 在真实代码库里实现功能、重构、排错 |
+MatrixOps 的目标不是做一个绑死某种 UI 或业务的单体助手，而是提供**可组装的 Agent 运行时**：
 
-底层由多个 **Worker**（explore、plan、verification、clawbot、frontend engineer 等）组合编排，而不是单一巨型 Agent 包办一切。
+| 层次 | 角色 | 职责 |
+|------|------|------|
+| **`core_agent`（大脑 / 心脏）** | AI 核心发动机 | 流式调用 LLM、解析 action / 工具调用、循环执行工具、通过 emitter 输出状态；**不**绑定具体数据库、前端协议或业务语义 |
+| **记忆模块（`agent/memory`）** | 可替换的「长期记忆」 | 独立 Store 接口：SQLite（`DBStore`）、JSON 文件（`JSONFileStore`）等；压缩、召回策略由外层注入，不写死在引擎里 |
+| **Session / 队列 / 看门狗等（躯干）** | 场景适配层 | 任务队列、关键信息注入、多模型协作、权限、UI 协议——通过 hook / adapter 接入 `core_agent` |
+| **MatrixOps 应用** | 参考实现 | 工作区、Worker、桌面 UI、语义回归测试工作区——证明框架能支撑真实产品开发 |
+
+开发时遵循 **Agent 是一等公民**：一次运行、一条消息流、一套工具循环是核心抽象；**消息队列**不是普通聊天 FIFO，而是向模型**注入关键信息**、协调**多 Agent / 多模型**协作的管道（看门狗警告、异步工具结果、Critical Info 补发等）。
+
+你需要新场景时，通常只需实现「躯干」（存储、工具集、Prompt 层、对外 API），再接到同一套 `core_agent` 引擎上，而不必 fork 或重写 Agent 循环。
+
+### 记忆：已抽离、可定制
+
+`agent/memory` 与 `core_agent` 解耦，调用方通过 `Store` 接口持久化：
+
+- **SQLite** — `DBStore`，适合桌面 / 服务端一体化部署
+- **JSON 文件** — `JSONFileStore`，适合调试、迁移或轻量单机场景
+
+记忆**压缩**（如分级 compaction）与**召回**（语义检索、关键信息重注入）在 session 层以策略形式接入，可按产品需求替换，而不修改引擎核心。
+
+### MatrixOps 作为参考应用
+
+在本仓库中，MatrixOps 将上述框架用于「本地优先的 AI 开发工作台」：多 Worker（explore、plan、verification、frontend engineer 等）编排、Git worktree、Diff 审查、仿真视图、iLink 微信接入等，都是**接入大脑后的具体躯干**，而非框架本身的硬编码约束。
+
+## 技术亮点
+
+### 看门狗机制
+
+MatrixOps 不把所有纠错都交给模型自觉完成。内置看门狗持续观察 Agent 循环，在异常迹象出现时向任务队列注入**补充系统消息**：
+
+| 看门狗 | 监测对象 | 行为 |
+|--------|----------|------|
+| **Stall（卡顿）** | 工具调用超过配置超时 | 取消该调用并排队警告，引导模型换策略 |
+| **Silent tool（静默工具）** | 连续多次工具调用但无助手文本输出 | 提示模型说明进展或直接回应用户 |
+| **Tool repeat（重复工具）** | 相同工具 + 参数被反复调用 | 警告可能陷入循环，建议换做法 |
+
+这些消息通过下方的补充消息管道送达，无需中断整个会话。
+
+### 消息与队列机制
+
+对话不只有「用户发一句、模型回一句」。MatrixOps 使用**任务消息队列**，支持多种投递方式：
+
+- **用户 / append 消息** — 任务运行中的正常输入与追加指令。
+- **Supplement 补充消息** — 系统侧注入（看门狗警告、异步工具结果、空流重试等），在 Agent 循环的安全时机写入会话记忆。
+- **Auto-run 自动续跑** — 任务结束后，队列中的下一条消息可自动触发新一轮执行。
+
+这样长时间运行的 Agent 能响应后台事件（工具完成、看门狗、子任务结果），而不必人工复制粘贴。
+
+### 关键信息机制
+
+长会话会经过记忆压缩以控制上下文长度。**关键信息（Critical Info）** 是会话级「必须保留」的事实列表——例如异步工具句柄（`bash_job_id`、子任务 `task_id`）、用户可见占位说明、工具调用指纹等。
+
+每轮 Agent 执行前，运行时会检查关键信息是否仍出现在记忆 transcript 中。若压缩后丢失，则**以合成 user 消息重新注入**，避免模型忘掉进行中的后台任务。
+
+### 语义回归测试
+
+项目通过三层**语义回归**体系守护质量（`pkgs/semreg`、`tests/semantic_regression`）：
+
+| 层级 | 关注点 | 典型运行方式 |
+|------|--------|--------------|
+| **L0** | Prompt 结构、首轮 LLM 请求形态、任务状态（mock LLM） | 每次 PR 的 CI |
+| **L1** | 工具调用 trace 指标 vs 基线（真实 LLM） | Nightly / 手动 |
+| **L2** | 端到端场景 + verification Worker 裁判（真实 LLM） | Nightly / 手动 |
+
+桌面端还提供**测试工作区**，可在 UI 中浏览场景并发起 L1/L2 跑测。
+
+### 分层提示词
+
+系统指令按层级拼装，而非单一大段 Prompt：
+
+1. **全局** — 所有任务共享的基线规则（在可配置层中优先级最低）。
+2. **职业（Occupation）** — 角色模板（`coder`、`analyst`、`planner` 等）。
+3. **项目** — 仓库级专属指引。
+4. **Worker** — 各 Worker 自身的 system prompt（`explore`、`plan`、`leader` 等）。
+5. **模型配置** — 模型族相关的 prompt 片段。
+6. **动态运行时层** — 每次执行注入的环境信息（工作目录、Git、Shell、日期）、工具优先级、会话引导、输出风格等。
+
+可在「设置 → 提示词」中编辑全局 / 职业 / 项目层，并在构建 LLM 请求时自动合并。
+
+### Compatible `action_provider`（工具调用适配层）
+
+许多 LLM API 只提供 Chat Completions，没有 `tools` / `tool_calls` 字段。MatrixOps 提供两条流式路径：
+
+- **Native** — 模型配置启用时，走 OpenAI / Anthropic 原生工具调用 API。
+- **Compatible** — 面向通用 Chat 端点的默认路径。
+
+Compatible 模式下，`ToolPromptAdapter` 会**从 HTTP 请求中移除原生 tool 字段**，并把工具与 action schema **注入 system prompt**。模型被要求输出 JSON 动作信封，例如 `{"@action":"call_tool","data":{...}}` 或 `{"@action":"answer","data":"..."}`。流式解析器将这些信封转换为与原生 API 相同的内部 tool-call 流水线。
+
+因此，无论提供商是否官方支持 function calling，都可以共用同一套 Agent 运行时、工具注册表与 UI。
 
 ## 核心能力
 

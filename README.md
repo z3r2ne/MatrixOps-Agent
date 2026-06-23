@@ -2,20 +2,109 @@
 
 **English** | [简体中文](./README.zh-CN.md)
 
-An AI assistant that unifies multiple agents behind one workspace, with **long-term memory** and a usage model that blends **OpenClaw-style persistent assistance** with **coding-agent project execution**.
+![MatrixOps Agent — composable AI Agent framework](./docs/matrixops-hero.png)
 
-Use the same system to keep context across weeks, delegate to specialized workers, and drop into a repository when you need to write or change code.
+> **MatrixOps Agent** is a general-purpose AI Agent framework: **`core_agent`** is the engine; memory, queues, workers, and tools plug in as modules. The desktop app in this repo is a reference implementation.
 
-## What makes it different
+MatrixOps Agent is a **high-freedom, general-purpose AI Agent framework**. Memory lives in a separate module with pluggable SQLite or JSON backends and swappable compression / recall strategies. **`core_agent` is the engine** — it parses model output and drives the tool loop (the “brain and heart”). Everything else connects through interfaces so you can build the “body” for your scenario and plug it in.
 
-Most tools force a choice: a memory-heavy assistant, or a repo-scoped coding agent. MatrixOps Agent is built to do both in one flow.
+The MatrixOps desktop app in this repo is a **reference implementation** of that framework: multi-worker orchestration, coding-agent tooling, long-term memory, semantic regression, and more.
 
-| Mode | What it feels like | Typical use |
-|------|-------------------|-------------|
-| **Persistent assistant** | Long-lived sessions, memory libraries, reminders, multi-step workflows | Research, planning, recurring tasks, knowledge that should survive restarts |
-| **Project coding agent** | Workspace-bound execution with tools for read/edit/bash/git | Implementing features, refactors, debugging in a real codebase |
+## Product vision
 
-Under the hood, multiple **workers** (explore, plan, verification, clawbot, frontend engineer, and more) can be composed and orchestrated instead of relying on a single monolithic agent.
+### Framework first, scenarios are pluggable
+
+The goal is not a monolithic assistant locked to one UI or one workflow. MatrixOps provides a **composable agent runtime**:
+
+| Layer | Role | Responsibility |
+|-------|------|----------------|
+| **`core_agent` (brain & heart)** | AI engine | Stream LLM calls, parse actions / tool calls, run the execution loop, emit state updates — **without** binding to a specific database, frontend protocol, or business semantics |
+| **Memory (`agent/memory`)** | Pluggable long-term memory | `Store` interface: SQLite (`DBStore`), JSON files (`JSONFileStore`), etc.; compaction and recall are injected by the host app, not baked into the engine |
+| **Session / queue / watchdogs (body)** | Scenario adapters | Task queues, critical-info injection, multi-agent / multi-model coordination, permissions, UI protocols — wired in via hooks and adapters |
+| **MatrixOps app** | Reference product | Workspaces, workers, desktop UI, semreg test workspace — proof that the framework supports real shipping software |
+
+Development treats **the Agent as a first-class citizen**: a run, a message stream, and a tool loop are the core abstractions. The **message queue** is not a simple chat FIFO — it is a pipe to **inject critical context into the model** and to coordinate **multi-agent / multi-model** work (watchdog warnings, async tool results, critical-info replay, and more).
+
+For a new scenario you typically implement the “body” (storage, tools, prompt layers, external APIs) and attach it to the same `core_agent` engine — no need to fork or rewrite the agent loop.
+
+### Memory: extracted and customizable
+
+`agent/memory` is decoupled from `core_agent`. Host apps persist through a `Store` interface:
+
+- **SQLite** — `DBStore`, suited to desktop / server deployments
+- **JSON files** — `JSONFileStore`, suited to debugging, migration, or lightweight single-machine setups
+
+**Compaction** (e.g. graduated levels) and **recall** (semantic search, critical-info re-injection) are policy hooks in the session layer and can be replaced per product without changing the engine core.
+
+### MatrixOps as the reference app
+
+In this repository, MatrixOps applies the framework to a **local-first AI dev workbench**: multi-worker orchestration (explore, plan, verification, frontend engineer, …), Git worktrees, diff review, simulation view, iLink WeChat bridge, and similar features are **bodies plugged into the same brain** — not hard constraints of the framework itself.
+
+## Highlights
+
+### Watchdog safeguards
+
+MatrixOps does not rely on the model to self-correct every failure mode. Built-in watchdogs observe the agent loop and push **supplement system messages** into the task queue when something looks stuck:
+
+| Watchdog | What it watches | What it does |
+|----------|-----------------|--------------|
+| **Stall** | A tool call runs longer than the configured timeout | Cancels the call and queues a warning so the model can change strategy |
+| **Silent tool** | Many consecutive tool calls with no assistant text | Nudges the model to explain progress or answer the user |
+| **Tool repeat** | The same tool + arguments called repeatedly | Warns about possible loops and suggests a different approach |
+
+These messages are delivered through the supplement pipeline (see below) without tearing down the session.
+
+### Message & queue pipeline
+
+Conversation is not only “user sends, model replies”. MatrixOps uses a **task message queue** with several delivery modes:
+
+- **User / append messages** — normal input and follow-ups while a task is running.
+- **Supplement messages** — system-side injections (watchdog warnings, async tool results, empty-stream retries) written into session memory at safe points in the agent loop.
+- **Auto-run** — when a task finishes, queued messages can automatically start the next run.
+
+This keeps long-running agents responsive to background events (tool completion, watchdogs, subtask results) without manual copy-paste.
+
+### Critical info survival
+
+Long sessions are compacted to stay within context limits. **Critical info** is a per-session list of facts that must survive compaction — for example async tool handles (`bash_job_id`, subtask `task_id`), user-visible placeholders, and tool-call fingerprints.
+
+Before each agent step, the runtime checks whether each critical item still appears in the memory transcript. If compaction removed it, the item is **re-injected as a synthetic user message** so the model does not lose track of in-flight work.
+
+### Semantic regression testing
+
+Quality is guarded by a three-tier **semantic regression** suite (`pkgs/semreg`, `tests/semantic_regression`):
+
+| Tier | Focus | Typical run |
+|------|-------|-------------|
+| **L0** | Prompt structure, first LLM request shape, task status (mock LLM) | Every PR in CI |
+| **L1** | Tool-call trace metrics vs. baselines (real LLM) | Nightly / manual |
+| **L2** | End-to-end scenarios judged by a verification worker (real LLM) | Nightly / manual |
+
+The desktop app also exposes a **test workspace** to browse scenarios and launch L1/L2 runs from the UI.
+
+### Layered prompts
+
+System instructions are composed in layers instead of a single blob:
+
+1. **Global** — baseline rules for every task (lowest priority among configured layers).
+2. **Occupation** — role templates (`coder`, `analyst`, `planner`, …).
+3. **Project** — repository-specific guidance.
+4. **Worker** — per-worker system prompt (`explore`, `plan`, `leader`, …).
+5. **Model settings** — model-family prompt fragments.
+6. **Dynamic runtime layers** — environment (cwd, git, shell, date), tool priority, session guidance, and output style injected per run.
+
+Layers are editable in Settings → Prompts and merged when building each LLM request.
+
+### Compatible `action_provider` (tool-call emulation)
+
+Many LLM APIs expose only chat completions — no `tools` / `tool_calls` field. MatrixOps ships two streaming paths:
+
+- **Native** — OpenAI / Anthropic tool-calling APIs when the model config enables it.
+- **Compatible** — the default for generic chat endpoints.
+
+In compatible mode, `ToolPromptAdapter` **strips native tool fields from the HTTP request** and **injects tool + action schemas into the system prompt**. The model is asked to emit JSON action envelopes such as `{"@action":"call_tool","data":{...}}` or `{"@action":"answer","data":"..."}`. A streaming parser turns those envelopes into the same internal tool-call pipeline used by native APIs.
+
+That means one agent runtime, one tool registry, and one UI — regardless of whether your provider officially supports function calling.
 
 ## Core capabilities
 
